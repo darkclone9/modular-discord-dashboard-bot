@@ -91,6 +91,7 @@ class FormsService:
             post_channel_id=payload.post_channel_id,
             review_channel_id=payload.review_settings.review_channel_id,
             reviewer_role_ids=payload.review_settings.reviewer_role_ids,
+            viewer_role_ids=payload.review_settings.viewer_role_ids,
             auto_role_id=payload.review_settings.auto_role_id,
             approval_message=payload.review_settings.approval_message,
             denial_message=payload.review_settings.denial_message,
@@ -384,6 +385,7 @@ class FormsService:
 def apply_review_settings(form: Form, settings: ReviewSettings) -> None:
     form.review_channel_id = settings.review_channel_id
     form.reviewer_role_ids = settings.reviewer_role_ids
+    form.viewer_role_ids = settings.viewer_role_ids
     form.auto_role_id = settings.auto_role_id
     form.approval_message = settings.approval_message
     form.denial_message = settings.denial_message
@@ -392,6 +394,7 @@ def apply_review_settings(form: Form, settings: ReviewSettings) -> None:
 def form_review_settings(form: Form) -> ReviewSettings:
     return ReviewSettings(
         reviewer_role_ids=form.reviewer_role_ids,
+        viewer_role_ids=form.viewer_role_ids,
         review_channel_id=form.review_channel_id,
         auto_role_id=form.auto_role_id,
         approval_message=form.approval_message,
@@ -408,6 +411,7 @@ def build_server_setup_form_payload(
     reviewer_role_ids: Sequence[str],
     auto_role_id: str | None,
     questions: Sequence[str | None],
+    viewer_role_ids: Sequence[str] = (),
 ) -> FormCreate:
     cleaned_questions = [
         question.strip() for question in questions if question and question.strip()
@@ -424,6 +428,7 @@ def build_server_setup_form_payload(
         ],
         review_settings=ReviewSettings(
             reviewer_role_ids=[role_id for role_id in reviewer_role_ids if role_id],
+            viewer_role_ids=[role_id for role_id in viewer_role_ids if role_id],
             review_channel_id=review_channel_id,
             auto_role_id=auto_role_id,
         ),
@@ -454,8 +459,18 @@ def ensure_reviewer(form: Form, actor_role_ids: set[str]) -> None:
 
 
 def build_reviewer_ping(form: Form) -> str:
-    mentions = " ".join(f"<@&{role_id}>" for role_id in form.reviewer_role_ids)
-    return f"{mentions} New application submitted for **{form.title}**.".strip()
+    reviewer_mentions = " ".join(f"<@&{role_id}>" for role_id in form.reviewer_role_ids)
+    viewer_role_ids = [
+        role_id for role_id in form.viewer_role_ids if role_id not in set(form.reviewer_role_ids)
+    ]
+    viewer_mentions = " ".join(f"<@&{role_id}>" for role_id in viewer_role_ids)
+    lines = [f"{reviewer_mentions} New application submitted for **{form.title}**.".strip()]
+    if viewer_mentions:
+        lines.append(
+            f"View-only thread access: {viewer_mentions}. "
+            "These roles can discuss but cannot approve or deny."
+        )
+    return "\n".join(line for line in lines if line)
 
 
 def build_approval_audit_reason(

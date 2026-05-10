@@ -31,6 +31,7 @@ class Form(Base):
     post_channel_id: Mapped[str] = mapped_column(String(32))
     review_channel_id: Mapped[str] = mapped_column(String(32))
     reviewer_role_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    viewer_role_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     auto_role_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     approval_message: Mapped[str] = mapped_column(
         Text, default="Your application has been approved."
@@ -55,6 +56,10 @@ class Form(Base):
         back_populates="form", cascade="all, delete-orphan"
     )
 
+    @property
+    def thread_access_role_ids(self) -> list[str]:
+        return list(dict.fromkeys([*self.reviewer_role_ids, *self.viewer_role_ids]))
+
 
 class FormField(Base):
     __tablename__ = "form_fields"
@@ -63,7 +68,7 @@ class FormField(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id", ondelete="CASCADE"), index=True)
     position: Mapped[int] = mapped_column(Integer)
-    label: Mapped[str] = mapped_column(String(100))
+    label: Mapped[str] = mapped_column(String(300))
     field_type: Mapped[str] = mapped_column(String(32))
     required: Mapped[bool] = mapped_column(Boolean, default=True)
     options: Mapped[list[str]] = mapped_column(JSON, default=list)

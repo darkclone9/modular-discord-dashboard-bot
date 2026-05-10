@@ -19,6 +19,7 @@ export type FormField = {
 
 export type ReviewSettings = {
   reviewerRoleIds: string[];
+  viewerRoleIds: string[];
   reviewChannelId: string;
   autoRoleId: string | null;
   approvalMessage: string;
@@ -45,6 +46,15 @@ export type Submission = {
   username: string;
   userId: string;
   threadId: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  actions: SubmissionAction[];
+};
+
+export type SubmissionAction = {
+  actorId: string;
+  action: string;
+  note: string | null;
   createdAt: string;
 };
 

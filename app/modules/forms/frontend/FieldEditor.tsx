@@ -30,12 +30,16 @@ export function FieldEditor({ field, onChange, onRemove }: Props) {
         />
         <label className="grid gap-1 text-sm font-medium text-foreground">
           Question label
-          <input
-            className="h-9 rounded-md border border-border px-3 text-sm font-normal"
+          <textarea
+            className="min-h-20 rounded-md border border-border px-3 py-2 text-sm font-normal"
             value={field.label}
             onChange={(event) => onChange({ ...field, label: event.target.value })}
             placeholder="Why do you want to apply?"
+            maxLength={300}
           />
+          <span className="text-xs font-normal text-muted-foreground">
+            {field.label.length}/300 characters. Discord will shorten the modal label if needed.
+          </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-foreground">
           <span className="flex items-center gap-2">

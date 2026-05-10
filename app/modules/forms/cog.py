@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.modules.forms.discord_gateway import DiscordFormsGateway
 from app.modules.forms.discord_views import ApplyView, ReviewActionsView
 from app.modules.forms.models import Form, Submission
 from app.modules.forms.service import (
@@ -37,9 +38,11 @@ class FormsCog(commands.Cog):
     async def cog_load(self) -> None:
         await self.register_persistent_views()
         self.publish_pending_forms.start()
+        self.sync_pending_thread_members.start()
 
     async def cog_unload(self) -> None:
         self.publish_pending_forms.cancel()
+        self.sync_pending_thread_members.cancel()
 
     async def register_persistent_views(self) -> None:
         async with self.session_factory() as db:
@@ -71,6 +74,7 @@ class FormsCog(commands.Cog):
         question_2="Optional second required long-text question.",
         question_3="Optional third required long-text question.",
         auto_role="Optional role to grant when a submission is approved.",
+        viewer_role="Optional role that can view and discuss review threads without approving.",
     )
     async def setup_form(
         self,
@@ -84,6 +88,7 @@ class FormsCog(commands.Cog):
         question_2: str | None = None,
         question_3: str | None = None,
         auto_role: discord.Role | None = None,
+        viewer_role: discord.Role | None = None,
     ) -> None:
         if interaction.guild_id is None or interaction.guild is None:
             await interaction.response.send_message(
@@ -109,6 +114,7 @@ class FormsCog(commands.Cog):
             apply_channel=apply_channel,
             review_channel=review_channel,
             reviewer_role=reviewer_role,
+            viewer_role=viewer_role,
             auto_role=auto_role,
         )
         if missing_permissions:
@@ -125,6 +131,7 @@ class FormsCog(commands.Cog):
             post_channel_id=str(apply_channel.id),
             review_channel_id=str(review_channel.id),
             reviewer_role_ids=[str(reviewer_role.id)],
+            viewer_role_ids=[str(viewer_role.id)] if viewer_role else [],
             auto_role_id=str(auto_role.id) if auto_role else None,
             questions=[question_1, question_2, question_3],
         )
@@ -196,6 +203,36 @@ class FormsCog(commands.Cog):
                     continue
                 self._refreshed_form_post_ids.add(form.id)
 
+    @tasks.loop(minutes=10)
+    async def sync_pending_thread_members(self) -> None:
+        await self.bot.wait_until_ready()
+        gateway = DiscordFormsGateway(self.bot, self.session_factory)
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(Submission)
+                .options(selectinload(Submission.form))
+                .where(
+                    Submission.status == "pending",
+                    Submission.thread_id.is_not(None),
+                )
+            )
+            submissions = list(result.scalars().unique())
+            for submission in submissions:
+                if submission.thread_id is None:
+                    continue
+                try:
+                    await gateway.add_form_role_members_to_thread(
+                        thread_id=submission.thread_id,
+                        form=submission.form,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "form_thread_member_sync_failed",
+                        submission_id=submission.id,
+                        thread_id=submission.thread_id,
+                        error=str(exc),
+                    )
+
     async def _publish_form_now(self, db: AsyncSession, form: Form) -> discord.Message:
         view = ApplyView(form.id, self.session_factory)
         if form.published_message_id:
@@ -250,6 +287,7 @@ def missing_setup_permissions(
     apply_channel: discord.TextChannel,
     review_channel: discord.TextChannel,
     reviewer_role: discord.Role,
+    viewer_role: discord.Role | None,
     auto_role: discord.Role | None,
 ) -> list[str]:
     missing: list[str] = []
@@ -274,6 +312,15 @@ def missing_setup_permissions(
         missing.append(
             f"{review_channel.mention}: Mention @everyone, @here, and All Roles "
             f"or make {reviewer_role.mention} mentionable"
+        )
+    if (
+        viewer_role is not None
+        and not viewer_role.mentionable
+        and not review_permissions.mention_everyone
+    ):
+        missing.append(
+            f"{review_channel.mention}: Mention @everyone, @here, and All Roles "
+            f"or make {viewer_role.mention} mentionable"
         )
 
     if auto_role is not None:

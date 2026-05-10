@@ -1,4 +1,5 @@
 import pytest
+from app.modules.forms.schemas import FormFieldCreate
 from app.modules.forms.service import build_server_setup_form_payload
 from app.modules.forms.validators import FieldDefinition, FormValidationError, validate_answers
 
@@ -84,3 +85,14 @@ def test_build_server_setup_payload_uses_default_question_when_blank() -> None:
     )
 
     assert [field.label for field in payload.fields] == ["Why do you want to apply?"]
+
+
+def test_form_field_accepts_long_application_question() -> None:
+    question = (
+        "Tell us about a time you took initiative on something nobody asked you to do. "
+        "What was it, why did you do it, and what came of it?"
+    )
+
+    field = FormFieldCreate(label=question, field_type="long_text", required=True)
+
+    assert field.label == question

@@ -40,6 +40,7 @@ export function SubmissionsTable({ guildId, formId }: Props) {
             <tr>
               <th className="p-3">User</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Decision by</th>
               <th className="p-3">Created</th>
               <th className="p-3">Thread</th>
             </tr>
@@ -49,6 +50,7 @@ export function SubmissionsTable({ guildId, formId }: Props) {
               <tr key={submission.id} className="border-t border-border">
                 <td className="p-3">{submission.username}</td>
                 <td className="p-3">{submission.status}</td>
+                <td className="p-3">{decisionBy(submission)}</td>
                 <td className="p-3">{new Date(submission.createdAt).toLocaleString()}</td>
                 <td className="p-3">
                   {submission.threadId && (
@@ -68,4 +70,20 @@ export function SubmissionsTable({ guildId, formId }: Props) {
       </div>
     </div>
   );
+}
+
+function decisionBy(submission: Submission) {
+  if (submission.status === "pending") {
+    return "-";
+  }
+  const action = [...submission.actions]
+    .reverse()
+    .find((item) => item.action === "approved" || item.action === "denied");
+  if (!action) {
+    return "Unknown";
+  }
+  if (action.action === "approved" && action.note) {
+    return action.note;
+  }
+  return `Discord ID ${action.actorId}`;
 }
