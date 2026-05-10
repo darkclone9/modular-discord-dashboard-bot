@@ -119,6 +119,46 @@ class DenyReasonModal(discord.ui.Modal):
         await interaction.response.send_message("Application denied.", ephemeral=True)
 
 
+class ApproveConfirmationModal(discord.ui.Modal):
+    confirmation = discord.ui.TextInput(
+        label="Type APPROVE to confirm",
+        placeholder="APPROVE",
+        max_length=20,
+    )
+
+    def __init__(
+        self,
+        *,
+        submission_id: str,
+        session_factory: async_sessionmaker[AsyncSession],
+    ) -> None:
+        super().__init__(title="Confirm approval")
+        self.submission_id = submission_id
+        self.session_factory = session_factory
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if str(self.confirmation.value).strip().upper() != "APPROVE":
+            await interaction.response.send_message(
+                "Approval cancelled. Type APPROVE exactly to approve an application.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        async with self.session_factory() as db:
+            try:
+                await FormsService(db).approve_submission(
+                    submission_id=self.submission_id,
+                    actor_id=str(interaction.user.id),
+                    actor_role_ids=role_ids_from_member(interaction.user),
+                    gateway=DiscordFormsGateway(interaction.client, self.session_factory),
+                )
+            except ReviewerPermissionError as exc:
+                await interaction.followup.send(str(exc), ephemeral=True)
+                return
+        await interaction.followup.send("Application approved.", ephemeral=True)
+
+
 class RequestInfoModal(discord.ui.Modal):
     question = discord.ui.TextInput(
         label="Question",

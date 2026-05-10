@@ -3,9 +3,13 @@ from collections.abc import Awaitable, Callable
 import discord
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.modules.forms.discord_gateway import DiscordFormsGateway, role_ids_from_member
-from app.modules.forms.discord_modals import DenyReasonModal, FormApplicationModal, RequestInfoModal
-from app.modules.forms.service import FormsService, NotFoundError, ReviewerPermissionError
+from app.modules.forms.discord_modals import (
+    ApproveConfirmationModal,
+    DenyReasonModal,
+    FormApplicationModal,
+    RequestInfoModal,
+)
+from app.modules.forms.service import FormsService, NotFoundError
 
 
 class ApplyView(discord.ui.View):
@@ -74,19 +78,12 @@ class ReviewActionsView(discord.ui.View):
         self.add_item(button)
 
     async def approve(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
-        async with self.session_factory() as db:
-            try:
-                await FormsService(db).approve_submission(
-                    submission_id=self.submission_id,
-                    actor_id=str(interaction.user.id),
-                    actor_role_ids=role_ids_from_member(interaction.user),
-                    gateway=DiscordFormsGateway(interaction.client, self.session_factory),
-                )
-            except ReviewerPermissionError as exc:
-                await interaction.followup.send(str(exc), ephemeral=True)
-                return
-        await interaction.followup.send("Application approved.", ephemeral=True)
+        await interaction.response.send_modal(
+            ApproveConfirmationModal(
+                submission_id=self.submission_id,
+                session_factory=self.session_factory,
+            )
+        )
 
     async def deny(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_modal(
