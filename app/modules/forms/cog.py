@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 
 import discord
@@ -8,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.modules.forms.discord_views import ApplyView, ReviewActionsView
 from app.modules.forms.models import Form, Submission
@@ -27,6 +29,7 @@ class FormsCog(commands.Cog):
         self.bot = bot
         self.settings = get_settings()
         self.session_factory = get_session_factory()
+        self._refreshed_form_post_ids: set[str] = set()
         self.publish_pending_forms.change_interval(
             seconds=self.settings.publish_poll_interval_seconds
         )
@@ -170,24 +173,46 @@ class FormsCog(commands.Cog):
         await self.bot.wait_until_ready()
         async with self.session_factory() as db:
             result = await db.execute(
-                select(Form).where(
+                select(Form)
+                .options(selectinload(Form.fields))
+                .where(
                     Form.is_published.is_(True),
                     Form.is_archived.is_(False),
-                    Form.published_message_id.is_(None),
                 )
             )
             forms = list(result.scalars())
             for form in forms:
+                should_publish = (
+                    form.published_message_id is None
+                    or form.published_at is None
+                    or form.id not in self._refreshed_form_post_ids
+                )
+                if not should_publish:
+                    continue
                 try:
                     await self._publish_form_now(db, form)
                 except Exception as exc:
                     log.warning("form_publish_failed", form_id=form.id, error=str(exc))
                     continue
+                self._refreshed_form_post_ids.add(form.id)
 
     async def _publish_form_now(self, db: AsyncSession, form: Form) -> discord.Message:
+        view = ApplyView(form.id, self.session_factory)
         if form.published_message_id:
             channel = await self._fetch_apply_channel(form)
-            return await channel.fetch_message(int(form.published_message_id))
+            try:
+                message = await channel.fetch_message(int(form.published_message_id))
+            except discord.NotFound:
+                form.published_message_id = None
+            else:
+                await message.edit(
+                    embed=build_apply_embed(form),
+                    view=view,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+                form.published_at = datetime.now(UTC)
+                await db.commit()
+                return message
 
         message = await self._post_apply_message(form)
         form.is_published = True
@@ -199,14 +224,8 @@ class FormsCog(commands.Cog):
 
     async def _post_apply_message(self, form: Form) -> discord.Message:
         channel = await self._fetch_apply_channel(form)
-        embed = discord.Embed(
-            title=form.title,
-            description=form.description or "Click Apply to begin.",
-            color=discord.Color.blurple(),
-        )
-        embed.set_footer(text="Applications are handled privately.")
         return await channel.send(
-            embed=embed,
+            embed=build_apply_embed(form),
             view=ApplyView(form.id, self.session_factory),
             allowed_mentions=discord.AllowedMentions.none(),
         )
@@ -272,6 +291,106 @@ def format_missing_permissions(missing_permissions: list[str]) -> str:
         f"{missing_lines}\n\n"
         "After you update the server or channel permissions, run `/forms setup` again."
     )
+
+
+def build_apply_embed(form: Form) -> discord.Embed:
+    intro, sections = split_apply_description(form.description)
+    embed = discord.Embed(
+        title=form.title,
+        description=truncate_embed_value(
+            intro or "Ready to apply? Click the Apply button below to begin.",
+            4096,
+        ),
+        color=discord.Color.blurple(),
+    )
+    for title, body in sections[:8]:
+        embed.add_field(name=title, value=truncate_embed_value(body), inline=False)
+
+    questions = format_question_list(form)
+    if questions:
+        embed.add_field(name=f"Questions ({len(form.fields)})", value=questions, inline=False)
+    embed.add_field(
+        name="How to submit",
+        value="Click **Apply** below. Your answers open a private review thread for the team.",
+        inline=False,
+    )
+    embed.set_footer(text="Applications are handled privately by the reviewer team.")
+    return embed
+
+
+def split_apply_description(description: str) -> tuple[str, list[tuple[str, str]]]:
+    text = normalize_embed_text(description)
+    if not text:
+        return "", []
+
+    paragraph_sections = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    if len(paragraph_sections) > 1:
+        return paragraph_sections[0], [
+            (f"Details {index}", paragraph)
+            for index, paragraph in enumerate(paragraph_sections[1:], 1)
+        ]
+
+    heading_pattern = re.compile(
+        r"\b(What officers do|What we're looking for|What we are looking for|"
+        r"Time commitment|How to apply|Requirements|Eligibility|What happens next|Deadline)"
+        r"\s*[:.]\s+",
+        re.IGNORECASE,
+    )
+    matches = list(heading_pattern.finditer(text))
+    if not matches:
+        return split_long_intro(text)
+
+    intro = text[: matches[0].start()].strip()
+    sections: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[start:end].strip()
+        if body:
+            sections.append((canonical_section_title(match.group(1)), body))
+    return intro, sections
+
+
+def split_long_intro(text: str) -> tuple[str, list[tuple[str, str]]]:
+    if len(text) <= 900:
+        return text, []
+    split_at = text.rfind(". ", 0, 700)
+    if split_at == -1:
+        split_at = 700
+    return text[: split_at + 1].strip(), [("Details", text[split_at + 1 :].strip())]
+
+
+def normalize_embed_text(value: str) -> str:
+    return re.sub(r"[ \t]+", " ", value.replace("\r\n", "\n").replace("\r", "\n")).strip()
+
+
+def canonical_section_title(value: str) -> str:
+    normalized = value.strip().lower()
+    titles = {
+        "what officers do": "What officers do",
+        "what we're looking for": "What we're looking for",
+        "what we are looking for": "What we're looking for",
+        "time commitment": "Time commitment",
+        "how to apply": "How to apply",
+        "requirements": "Requirements",
+        "eligibility": "Eligibility",
+        "what happens next": "What happens next",
+        "deadline": "Deadline",
+    }
+    return titles.get(normalized, value.strip())
+
+
+def format_question_list(form: Form) -> str:
+    if not form.fields:
+        return ""
+    lines = [f"{index}. {field.label}" for index, field in enumerate(form.fields, 1)]
+    return truncate_embed_value("\n".join(lines))
+
+
+def truncate_embed_value(value: str, limit: int = 1024) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 3].rstrip() + "..."
 
 
 async def setup(bot: commands.Bot) -> None:

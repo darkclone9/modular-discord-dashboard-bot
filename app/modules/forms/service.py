@@ -152,6 +152,8 @@ class FormsService:
                 )
                 for index, field in enumerate(payload.fields)
             ]
+        if form.is_published:
+            form.published_at = None
         await self.db.commit()
         await self.db.refresh(form, ["fields"])
         return form
@@ -190,6 +192,7 @@ class FormsService:
     async def publish_form(self, guild_id: str, form_id: str) -> Form:
         form = await self.get_form(guild_id, form_id)
         form.is_published = True
+        form.published_at = None
         await self.db.commit()
         await self.db.refresh(form, ["fields"])
         return form
