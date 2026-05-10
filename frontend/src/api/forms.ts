@@ -47,6 +47,15 @@ export type Submission = {
   userId: string;
   threadId: string | null;
   createdAt: string;
+  decidedAt: string | null;
+  actions: SubmissionAction[];
+};
+
+export type SubmissionAction = {
+  actorId: string;
+  action: string;
+  note: string | null;
+  createdAt: string;
 };
 
 export function listForms(guildId: string) {
