@@ -112,6 +112,12 @@ class DiscordFormsGateway:
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
         )
 
+    async def add_form_role_members_to_thread(self, *, thread_id: str, form: Form) -> None:
+        channel = await self._fetch_channel(thread_id)
+        if not isinstance(channel, discord.Thread):
+            raise TypeError("Review destination must be a thread")
+        await add_role_members_to_thread(channel, form.thread_access_role_ids)
+
     async def _fetch_channel(self, channel_id: str) -> discord.abc.GuildChannel | discord.Thread:
         channel = self.bot.get_channel(int(channel_id))
         if channel is not None:

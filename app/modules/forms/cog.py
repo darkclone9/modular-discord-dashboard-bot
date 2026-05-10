@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.modules.forms.discord_gateway import DiscordFormsGateway
 from app.modules.forms.discord_views import ApplyView, ReviewActionsView
 from app.modules.forms.models import Form, Submission
 from app.modules.forms.service import (
@@ -37,9 +38,11 @@ class FormsCog(commands.Cog):
     async def cog_load(self) -> None:
         await self.register_persistent_views()
         self.publish_pending_forms.start()
+        self.sync_pending_thread_members.start()
 
     async def cog_unload(self) -> None:
         self.publish_pending_forms.cancel()
+        self.sync_pending_thread_members.cancel()
 
     async def register_persistent_views(self) -> None:
         async with self.session_factory() as db:
@@ -199,6 +202,36 @@ class FormsCog(commands.Cog):
                     log.warning("form_publish_failed", form_id=form.id, error=str(exc))
                     continue
                 self._refreshed_form_post_ids.add(form.id)
+
+    @tasks.loop(minutes=10)
+    async def sync_pending_thread_members(self) -> None:
+        await self.bot.wait_until_ready()
+        gateway = DiscordFormsGateway(self.bot, self.session_factory)
+        async with self.session_factory() as db:
+            result = await db.execute(
+                select(Submission)
+                .options(selectinload(Submission.form))
+                .where(
+                    Submission.status == "pending",
+                    Submission.thread_id.is_not(None),
+                )
+            )
+            submissions = list(result.scalars().unique())
+            for submission in submissions:
+                if submission.thread_id is None:
+                    continue
+                try:
+                    await gateway.add_form_role_members_to_thread(
+                        thread_id=submission.thread_id,
+                        form=submission.form,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "form_thread_member_sync_failed",
+                        submission_id=submission.id,
+                        thread_id=submission.thread_id,
+                        error=str(exc),
+                    )
 
     async def _publish_form_now(self, db: AsyncSession, form: Form) -> discord.Message:
         view = ApplyView(form.id, self.session_factory)
