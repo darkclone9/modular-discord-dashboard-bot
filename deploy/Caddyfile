@@ -2,10 +2,10 @@
 	email {$CADDY_EMAIL}
 }
 
-{$WEB_DOMAIN} {
+{$CADDY_WEB_HOST} {
 	reverse_proxy web:5173
 }
 
-{$API_DOMAIN} {
+{$CADDY_API_HOST} {
 	reverse_proxy api:8000
 }

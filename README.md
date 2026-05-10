@@ -59,6 +59,8 @@ See `.env.example` for the full list. The key production domain values are:
 - `WEB_DOMAIN=https://dashboard.example.com`
 - `API_DOMAIN=https://api.example.com`
 - `COOKIE_DOMAIN=.example.com`
+- `CADDY_WEB_HOST=dashboard.example.com`
+- `CADDY_API_HOST=api.example.com`
 - `DISCORD_REDIRECT_URI=https://api.example.com/auth/discord/callback`
 
 In production, CORS is restricted to `WEB_DOMAIN`. Local development also allows

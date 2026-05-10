@@ -39,8 +39,8 @@ services:
 
   web:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.web
     environment:
       VITE_API_BASE_URL: ${API_DOMAIN}
     depends_on:
