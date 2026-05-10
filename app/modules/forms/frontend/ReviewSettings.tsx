@@ -78,7 +78,8 @@ export function ReviewSettings({ settings, onChange }: Props) {
             <>
               Viewer roles are included in the private thread announcement and can discuss the
               application, but they cannot approve, deny, or request more info. Give these roles
-              access to the review channel and thread messaging in Discord.
+              access to the review channel and thread messaging in Discord. Automatic thread
+              invites require the bot's Server Members Intent to be enabled.
             </>
           }
           onChange={(viewerRoleIds) => onChange({ ...settings, viewerRoleIds })}

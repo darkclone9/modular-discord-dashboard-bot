@@ -119,7 +119,10 @@ submissions by status.
 
 Reviewer roles can approve, deny, and request more information. Viewer roles can
 be added separately so officers can see and discuss review threads without
-having permission to use the decision buttons.
+having permission to use the decision buttons. Automatic viewer/reviewer thread
+invites require the Discord bot's Server Members Intent, because Discord private
+threads require adding individual users rather than granting access to a whole
+role at once.
 
 Admins can also create a starter form directly in Discord with `/forms setup`.
 The command uses Discord channel and role pickers, creates required long-text
