@@ -31,6 +31,8 @@ The bot auto-discovers `app/modules/*/cog.py`; the API auto-mounts
 ## Setup
 
 1. Create a Discord application and bot in the Discord Developer Portal.
+   Enable the Server Members Intent and Presence Intent if you use the weekly
+   game suggestion tracker, since it reads members' "Playing ..." activity.
 2. Add this OAuth redirect URI:
 
    ```text
@@ -130,10 +132,28 @@ submission DMs the applicant, optionally grants the configured role, and deletes
 the review thread. Reviewer buttons use stable custom IDs and are re-registered
 on startup.
 
+## Trackers
+
+The Trackers module lets admins create per-server notification trackers in the
+dashboard. Each tracker stores a provider, source, notification channel, enabled
+state, and custom message template. Message templates can use `{provider}`,
+`{source}`, `{title}`, and `{url}`.
+
+YouTube channel upload tracking works through YouTube's public RSS feed using a
+channel ID. TikTok, Instagram, and Facebook are represented in the module schema
+and dashboard so they can be wired to official API connectors without changing
+the dashboard or database contract.
+
+The game suggestion category watches Discord presence activity, records games
+members are playing, and once per configured week picks one user's game. The bot
+can mention `@everyone`, ping the selected player, and optionally grant a reward
+role.
+
 ## Roadmap
 
 - v0.1: Project foundation, Discord OAuth dashboard login, module discovery,
   hello cog, Forms / Applications module.
-- v0.2: Moderation cog with dashboard-managed automod rules.
-- v0.3: Audit log viewer and configurable Discord event logging.
-- v0.4: Welcome screen and auto-role module.
+- v0.2: Trackers module for social notifications and weekly game suggestions.
+- v0.3: Moderation cog with dashboard-managed automod rules.
+- v0.4: Audit log viewer and configurable Discord event logging.
+- v0.5: Welcome screen and auto-role module.
