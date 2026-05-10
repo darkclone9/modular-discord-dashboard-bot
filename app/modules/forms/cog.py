@@ -94,6 +94,26 @@ class FormsCog(commands.Cog):
                 ephemeral=True,
             )
             return
+        if interaction.guild.me is None:
+            await interaction.response.send_message(
+                "I could not read my server permissions. Try again in a moment.",
+                ephemeral=True,
+            )
+            return
+
+        missing_permissions = missing_setup_permissions(
+            interaction.guild.me,
+            apply_channel=apply_channel,
+            review_channel=review_channel,
+            reviewer_role=reviewer_role,
+            auto_role=auto_role,
+        )
+        if missing_permissions:
+            await interaction.response.send_message(
+                format_missing_permissions(missing_permissions),
+                ephemeral=True,
+            )
+            return
 
         await interaction.response.defer(ephemeral=True, thinking=True)
         payload = build_server_setup_form_payload(
@@ -107,11 +127,23 @@ class FormsCog(commands.Cog):
         )
 
         async with self.session_factory() as db:
+            service = FormsService(db)
+            form: Form | None = None
             try:
-                service = FormsService(db)
                 form = await service.create_form(str(interaction.guild_id), payload)
                 message = await self._publish_form_now(db, form)
             except Exception as exc:
+                await db.rollback()
+                if form is not None and form.published_message_id is None:
+                    try:
+                        await service.delete_form(str(interaction.guild_id), form.id)
+                    except Exception as cleanup_exc:
+                        log.warning(
+                            "server_form_setup_cleanup_failed",
+                            guild_id=interaction.guild_id,
+                            form_id=form.id,
+                            error=str(cleanup_exc),
+                        )
                 log.warning(
                     "server_form_setup_failed",
                     guild_id=interaction.guild_id,
@@ -191,6 +223,55 @@ class FormsCog(commands.Cog):
 def can_manage_guild(user: discord.Member | discord.User) -> bool:
     permissions = getattr(user, "guild_permissions", None)
     return bool(permissions and permissions.manage_guild)
+
+
+def missing_setup_permissions(
+    bot_member: discord.Member,
+    *,
+    apply_channel: discord.TextChannel,
+    review_channel: discord.TextChannel,
+    reviewer_role: discord.Role,
+    auto_role: discord.Role | None,
+) -> list[str]:
+    missing: list[str] = []
+    apply_permissions = apply_channel.permissions_for(bot_member)
+    if not apply_permissions.view_channel:
+        missing.append(f"{apply_channel.mention}: View Channel")
+    if not apply_permissions.send_messages:
+        missing.append(f"{apply_channel.mention}: Send Messages")
+    if not apply_permissions.embed_links:
+        missing.append(f"{apply_channel.mention}: Embed Links")
+
+    review_permissions = review_channel.permissions_for(bot_member)
+    if not review_permissions.view_channel:
+        missing.append(f"{review_channel.mention}: View Channel")
+    if not review_permissions.create_private_threads:
+        missing.append(f"{review_channel.mention}: Create Private Threads")
+    if not review_permissions.send_messages_in_threads:
+        missing.append(f"{review_channel.mention}: Send Messages in Threads")
+    if not review_permissions.manage_threads:
+        missing.append(f"{review_channel.mention}: Manage Threads")
+    if not reviewer_role.mentionable and not review_permissions.mention_everyone:
+        missing.append(
+            f"{review_channel.mention}: Mention @everyone, @here, and All Roles "
+            f"or make {reviewer_role.mention} mentionable"
+        )
+
+    if auto_role is not None:
+        if not bot_member.guild_permissions.manage_roles:
+            missing.append("Server: Manage Roles")
+        elif bot_member.top_role <= auto_role:
+            missing.append(f"Move my bot role above {auto_role.mention} in the role list")
+    return missing
+
+
+def format_missing_permissions(missing_permissions: list[str]) -> str:
+    missing_lines = "\n".join(f"- {permission}" for permission in missing_permissions)
+    return (
+        "I need these permissions before I can publish that form:\n"
+        f"{missing_lines}\n\n"
+        "After you update the server or channel permissions, run `/forms setup` again."
+    )
 
 
 async def setup(bot: commands.Bot) -> None:
