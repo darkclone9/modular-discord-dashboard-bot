@@ -112,6 +112,12 @@ forms in the dashboard, define ordered fields, configure reviewer roles, set a
 private review-thread parent channel, publish the Apply button, and view
 submissions by status.
 
+Admins can also create a starter form directly in Discord with `/forms setup`.
+The command uses Discord channel and role pickers, creates required long-text
+questions, saves the form, and immediately posts the Apply button in the chosen
+channel. Use the dashboard afterward for deeper edits, extra field types, custom
+DM messages, and submission review.
+
 When a member clicks Apply, the bot opens Discord modal pages in chunks of five
 fields, stores the answers in Postgres, creates a private review thread, posts a
 review embed, and pings the configured reviewer roles once. Reviewer buttons use

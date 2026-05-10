@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -7,7 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.forms.models import Form, FormField, Submission, SubmissionAction
-from app.modules.forms.schemas import FormCreate, FormRead, FormUpdate, ReviewSettings
+from app.modules.forms.schemas import (
+    FormCreate,
+    FormFieldCreate,
+    FormRead,
+    FormUpdate,
+    ReviewSettings,
+)
 from app.modules.forms.validators import (
     validate_answers,
     validate_field_definitions,
@@ -24,6 +31,9 @@ class PendingSubmissionError(ValueError):
 
 class ReviewerPermissionError(PermissionError):
     pass
+
+
+DEFAULT_SETUP_QUESTION = "Why do you want to apply?"
 
 
 @dataclass(frozen=True)
@@ -367,6 +377,37 @@ def form_review_settings(form: Form) -> ReviewSettings:
         auto_role_id=form.auto_role_id,
         approval_message=form.approval_message,
         denial_message=form.denial_message,
+    )
+
+
+def build_server_setup_form_payload(
+    *,
+    title: str,
+    description: str,
+    post_channel_id: str,
+    review_channel_id: str,
+    reviewer_role_ids: Sequence[str],
+    auto_role_id: str | None,
+    questions: Sequence[str | None],
+) -> FormCreate:
+    cleaned_questions = [
+        question.strip() for question in questions if question and question.strip()
+    ]
+    if not cleaned_questions:
+        cleaned_questions = [DEFAULT_SETUP_QUESTION]
+    return FormCreate(
+        title=title.strip(),
+        description=description.strip(),
+        post_channel_id=post_channel_id,
+        fields=[
+            FormFieldCreate(label=question, field_type="long_text", required=True)
+            for question in cleaned_questions
+        ],
+        review_settings=ReviewSettings(
+            reviewer_role_ids=[role_id for role_id in reviewer_role_ids if role_id],
+            review_channel_id=review_channel_id,
+            auto_role_id=auto_role_id,
+        ),
     )
 
 

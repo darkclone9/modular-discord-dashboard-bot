@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(default=60 * 60 * 24 * 7, alias="SESSION_TTL_SECONDS")
 
     publish_poll_interval_seconds: int = Field(default=30, alias="PUBLISH_POLL_INTERVAL_SECONDS")
+    sync_application_commands: bool = Field(default=True, alias="SYNC_APPLICATION_COMMANDS")
 
     @field_validator("cookie_domain", mode="before")
     @classmethod
