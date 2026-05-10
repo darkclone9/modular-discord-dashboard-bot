@@ -103,6 +103,18 @@ docker compose -f docker-compose.prod.yml up --build -d
 `docker-compose.prod.yml` runs Caddy in front of the API and dashboard for
 automatic HTTPS certificates.
 
+## Forms / Applications
+
+The Forms module is the v0.1 reference feature. Admins can create per-server
+forms in the dashboard, define ordered fields, configure reviewer roles, set a
+private review-thread parent channel, publish the Apply button, and view
+submissions by status.
+
+When a member clicks Apply, the bot opens Discord modal pages in chunks of five
+fields, stores the answers in Postgres, creates a private review thread, posts a
+review embed, and pings the configured reviewer roles once. Reviewer buttons use
+stable custom IDs and are re-registered on startup.
+
 ## Roadmap
 
 - v0.1: Project foundation, Discord OAuth dashboard login, module discovery,

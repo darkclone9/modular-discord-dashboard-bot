@@ -13,6 +13,7 @@
     "moduleResolution": "Node",
     "baseUrl": ".",
     "paths": {
+      "lucide-react": ["./node_modules/lucide-react/dist/lucide-react"],
       "react": ["./node_modules/@types/react"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"]
     },
