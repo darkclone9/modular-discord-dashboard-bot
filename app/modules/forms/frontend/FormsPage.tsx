@@ -12,6 +12,7 @@ import {
 import { Button } from "../../../../frontend/src/components/ui/button";
 import { Card } from "../../../../frontend/src/components/ui/card";
 import { FormEditor, newFormDraft } from "./FormEditor";
+import { InfoBubble } from "./InfoBubble";
 import { SubmissionsTable } from "./SubmissionsTable";
 
 type Props = {
@@ -42,12 +43,28 @@ export function FormsPage({ guildId }: Props) {
     <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
       <aside>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Forms</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Forms</h2>
+              <InfoBubble label="Forms list help">
+                Forms are reusable application templates. Edit a form, save it, then publish it to
+                post the Apply button in Discord.
+              </InfoBubble>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Create and manage application flows for this server.
+            </p>
+          </div>
           <Button variant="secondary" onClick={() => setDrafting(true)} title="Create form">
             <FilePlus aria-hidden="true" size={16} />
           </Button>
         </div>
         <div className="space-y-2">
+          {forms.length === 0 && (
+            <Card className="p-3 text-sm text-muted-foreground">
+              No forms yet. Use the create button to start your first application.
+            </Card>
+          )}
           {forms.map((form) => (
             <button key={form.id} className="w-full text-left" onClick={() => setSelected(form)}>
               <Card
@@ -57,6 +74,9 @@ export function FormsPage({ guildId }: Props) {
                 <div className="mt-1 text-xs text-muted-foreground">
                   {form.isPublished ? "Published" : "Draft"}
                 </div>
+                {form.isPublished && !form.publishedMessageId && (
+                  <div className="mt-1 text-xs text-muted-foreground">Waiting for bot post</div>
+                )}
               </Card>
             </button>
           ))}
@@ -85,9 +105,15 @@ export function FormsPage({ guildId }: Props) {
                   <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => mutate(() => publishForm(guildId, selected.id))}>
-                    Publish
-                  </Button>
+                  <span className="inline-flex items-center gap-2">
+                    <Button onClick={() => mutate(() => publishForm(guildId, selected.id))}>
+                      Publish
+                    </Button>
+                    <InfoBubble label="Publish help" side="left">
+                      Publish marks the form active. The bot then posts or refreshes the Discord
+                      embed with the Apply button in the configured channel.
+                    </InfoBubble>
+                  </span>
                   <Button
                     variant="secondary"
                     onClick={() => mutate(() => duplicateForm(guildId, selected.id))}
