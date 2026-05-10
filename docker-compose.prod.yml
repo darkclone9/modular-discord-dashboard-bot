@@ -43,6 +43,7 @@ services:
       dockerfile: Dockerfile.web
     environment:
       VITE_API_BASE_URL: ${API_DOMAIN}
+      CADDY_WEB_HOST: ${CADDY_WEB_HOST}
     depends_on:
       - api
 

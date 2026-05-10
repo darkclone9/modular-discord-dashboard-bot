@@ -47,6 +47,7 @@ services:
       dockerfile: Dockerfile.web
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      CADDY_WEB_HOST: ${CADDY_WEB_HOST:-localhost}
     ports:
       - "5173:5173"
     depends_on:

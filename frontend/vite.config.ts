@@ -17,6 +17,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: process.env.CADDY_WEB_HOST
+      ? [process.env.CADDY_WEB_HOST, "localhost", "127.0.0.1"]
+      : ["localhost", "127.0.0.1"],
     fs: {
       allow: [".."],
     },
