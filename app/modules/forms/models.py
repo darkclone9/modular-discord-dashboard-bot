@@ -68,7 +68,7 @@ class FormField(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id", ondelete="CASCADE"), index=True)
     position: Mapped[int] = mapped_column(Integer)
-    label: Mapped[str] = mapped_column(String(100))
+    label: Mapped[str] = mapped_column(String(300))
     field_type: Mapped[str] = mapped_column(String(32))
     required: Mapped[bool] = mapped_column(Boolean, default=True)
     options: Mapped[list[str]] = mapped_column(JSON, default=list)

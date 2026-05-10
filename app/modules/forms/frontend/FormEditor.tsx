@@ -205,9 +205,50 @@ export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
 
 function readSaveError(error: unknown) {
   if (error instanceof Error) {
-    return `Save failed: ${error.message}`;
+    return `Save failed: ${parseApiError(error.message) ?? error.message}`;
   }
   return "Save failed. Please try again.";
+}
+
+function parseApiError(message: string) {
+  try {
+    const body = JSON.parse(message) as { detail?: unknown };
+    if (Array.isArray(body.detail)) {
+      return body.detail
+        .map((item) => {
+          if (!isApiValidationError(item)) {
+            return null;
+          }
+          const location = formatErrorLocation(item.loc);
+          return location ? `${location}: ${item.msg}` : item.msg;
+        })
+        .filter(Boolean)
+        .join("; ");
+    }
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function isApiValidationError(value: unknown): value is { loc: unknown[]; msg: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { loc?: unknown }).loc) &&
+    typeof (value as { msg?: unknown }).msg === "string"
+  );
+}
+
+function formatErrorLocation(location: unknown[]) {
+  const fieldIndex = location.findIndex((part) => part === "fields");
+  if (fieldIndex >= 0 && typeof location[fieldIndex + 1] === "number") {
+    return `Question ${Number(location[fieldIndex + 1]) + 1}`;
+  }
+  return "";
 }
 
 export function newFormDraft(): FormSummary {

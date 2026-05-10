@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 FieldType = Literal["short_text", "long_text", "select", "multi_select", "number", "boolean"]
 SubmissionStatus = Literal["pending", "approved", "denied"]
+FIELD_LABEL_MAX_LENGTH = 300
 
 
 def to_camel(value: str) -> str:
@@ -21,7 +22,7 @@ class APIModel(BaseModel):
 
 
 class FormFieldCreate(APIModel):
-    label: str = Field(min_length=1, max_length=100)
+    label: str = Field(min_length=1, max_length=FIELD_LABEL_MAX_LENGTH)
     field_type: FieldType
     required: bool = True
     options: list[str] = Field(default_factory=list)
