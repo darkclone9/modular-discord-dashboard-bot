@@ -12,6 +12,11 @@ class FakeDiscordGateway:
     def __init__(self) -> None:
         self.created_threads: list[dict[str, object]] = []
         self.review_posts: list[dict[str, object]] = []
+        self.dms: list[dict[str, str]] = []
+        self.assigned_roles: list[dict[str, str]] = []
+        self.locked_threads: list[str] = []
+        self.deleted_threads: list[str] = []
+        self.thread_messages: list[dict[str, str]] = []
 
     async def create_review_thread(
         self,
@@ -50,16 +55,19 @@ class FakeDiscordGateway:
         return ThreadPost(message_id="123")
 
     async def dm_user(self, *, user_id: str, content: str) -> None:
-        raise AssertionError("not used in submission flow")
+        self.dms.append({"user_id": user_id, "content": content})
 
     async def assign_role(self, *, guild_id: str, user_id: str, role_id: str) -> None:
-        raise AssertionError("not used in submission flow")
+        self.assigned_roles.append({"guild_id": guild_id, "user_id": user_id, "role_id": role_id})
 
     async def lock_thread(self, *, thread_id: str) -> None:
-        raise AssertionError("not used in submission flow")
+        self.locked_threads.append(thread_id)
+
+    async def delete_thread(self, *, thread_id: str) -> None:
+        self.deleted_threads.append(thread_id)
 
     async def post_thread_message(self, *, thread_id: str, content: str) -> None:
-        raise AssertionError("not used in submission flow")
+        self.thread_messages.append({"thread_id": thread_id, "content": content})
 
 
 @pytest.fixture
@@ -113,6 +121,10 @@ async def test_submission_creates_thread_embed_and_role_ping(db_session) -> None
     embed = gateway.review_posts[0]["embed"]
     assert embed["title"] == "Staff Application"
     assert {"name": "Name", "value": "Gary", "inline": False} in embed["fields"]
+    assert gateway.dms == []
+    assert gateway.assigned_roles == []
+    assert gateway.locked_threads == []
+    assert gateway.deleted_threads == []
 
     with pytest.raises(PendingSubmissionError):
         await service.submit_form_and_create_thread(
@@ -125,3 +137,46 @@ async def test_submission_creates_thread_embed_and_role_ping(db_session) -> None
             },
             gateway=gateway,
         )
+
+
+@pytest.mark.asyncio
+async def test_approval_dms_assigns_role_and_deletes_review_thread(db_session) -> None:
+    service = FormsService(db_session)
+    form = await service.create_form(
+        "guild-1",
+        FormCreate(
+            title="Staff Application",
+            description="Apply for staff.",
+            post_channel_id="100",
+            fields=[
+                FormFieldCreate(label="Name", field_type="short_text", required=True),
+            ],
+            review_settings=ReviewSettings(
+                reviewer_role_ids=["777"],
+                review_channel_id="200",
+                auto_role_id="888",
+                approval_message="Approved. Welcome aboard.",
+            ),
+        ),
+    )
+    gateway = FakeDiscordGateway()
+    submission = await service.submit_form_and_create_thread(
+        form_id=form.id,
+        user_id="42",
+        username="Gary",
+        answers={form.fields[0].id: "Gary"},
+        gateway=gateway,
+    )
+
+    approved = await service.approve_submission(
+        submission_id=submission.id,
+        actor_id="99",
+        actor_role_ids={"777"},
+        gateway=gateway,
+    )
+
+    assert approved.status == "approved"
+    assert gateway.dms == [{"user_id": "42", "content": "Approved. Welcome aboard."}]
+    assert gateway.assigned_roles == [{"guild_id": "guild-1", "user_id": "42", "role_id": "888"}]
+    assert gateway.deleted_threads == ["999999"]
+    assert gateway.locked_threads == []

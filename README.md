@@ -120,8 +120,10 @@ DM messages, and submission review.
 
 When a member clicks Apply, the bot opens Discord modal pages in chunks of five
 fields, stores the answers in Postgres, creates a private review thread, posts a
-review embed, and pings the configured reviewer roles once. Reviewer buttons use
-stable custom IDs and are re-registered on startup.
+review embed, and pings the configured reviewer roles once. Approving a
+submission DMs the applicant, optionally grants the configured role, and deletes
+the review thread. Reviewer buttons use stable custom IDs and are re-registered
+on startup.
 
 ## Roadmap
 

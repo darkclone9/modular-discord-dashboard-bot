@@ -87,6 +87,11 @@ class DiscordFormsGateway:
         if isinstance(channel, discord.Thread):
             await channel.edit(locked=True, archived=True, reason="Application review complete")
 
+    async def delete_thread(self, *, thread_id: str) -> None:
+        channel = await self._fetch_channel(thread_id)
+        if isinstance(channel, discord.Thread):
+            await channel.delete(reason="Application approved")
+
     async def post_thread_message(self, *, thread_id: str, content: str) -> None:
         channel = await self._fetch_channel(thread_id)
         if not isinstance(channel, discord.Thread):

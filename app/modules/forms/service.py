@@ -66,6 +66,8 @@ class FormsDiscordGateway(Protocol):
 
     async def lock_thread(self, *, thread_id: str) -> None: ...
 
+    async def delete_thread(self, *, thread_id: str) -> None: ...
+
     async def post_thread_message(self, *, thread_id: str, content: str) -> None: ...
 
 
@@ -265,7 +267,7 @@ class FormsService:
                 role_id=submission.form.auto_role_id,
             )
         if submission.thread_id:
-            await gateway.lock_thread(thread_id=submission.thread_id)
+            await gateway.delete_thread(thread_id=submission.thread_id)
         await self.db.commit()
         await self.db.refresh(submission, ["actions", "form"])
         return submission
