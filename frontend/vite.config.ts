@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "lucide-react": fileURLToPath(
+        new URL("./node_modules/lucide-react/dist/esm/lucide-react.js", import.meta.url),
+      ),
       react: fileURLToPath(new URL("./node_modules/react", import.meta.url)),
       "react/jsx-runtime": fileURLToPath(
         new URL("./node_modules/react/jsx-runtime.js", import.meta.url),
