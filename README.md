@@ -1,3 +1,124 @@
 # Modular Discord Dashboard Bot
 
-Initial repository seed. The full v0.1 scaffold is developed on `pr/1-scaffold`.
+A self-hostable, modular Discord bot inspired by moderation/utility bots like
+Dyno, built for extension in Python. The v0.1 foundation includes a Discord bot,
+FastAPI API, React dashboard, PostgreSQL persistence, Docker deployment, and a
+reference module layout for future features.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Discord["Discord API"] <--> Bot["discord.py bot"]
+  Web["React dashboard"] <--> API["FastAPI API"]
+  Bot <--> DB[("PostgreSQL")]
+  API <--> DB
+  API <--> Discord
+```
+
+Each feature lives in `app/modules/<name>/`:
+
+- `cog.py` for Discord interactions.
+- `routes.py` for FastAPI endpoints.
+- `models.py` for SQLAlchemy tables.
+- `schemas.py` for Pydantic API contracts.
+- `service.py` for business logic shared by bot and dashboard.
+- `frontend/` for module-owned React pages/components.
+
+The bot auto-discovers `app/modules/*/cog.py`; the API auto-mounts
+`app/modules/*/routes.py`.
+
+## Setup
+
+1. Create a Discord application and bot in the Discord Developer Portal.
+2. Add this OAuth redirect URI:
+
+   ```text
+   http://localhost:8000/auth/discord/callback
+   ```
+
+   For production, register:
+
+   ```text
+   https://api.example.com/auth/discord/callback
+   ```
+
+3. Copy `.env.example` to `.env` and fill in secrets.
+4. Run:
+
+   ```bash
+   docker compose up --build
+   ```
+
+5. Open `http://localhost:5173`.
+
+## Environment Variables
+
+See `.env.example` for the full list. The key production domain values are:
+
+- `WEB_DOMAIN=https://dashboard.example.com`
+- `API_DOMAIN=https://api.example.com`
+- `COOKIE_DOMAIN=.example.com`
+- `DISCORD_REDIRECT_URI=https://api.example.com/auth/discord/callback`
+
+In production, CORS is restricted to `WEB_DOMAIN`. Local development also allows
+`http://localhost:5173`. Session cookies are signed server-side by a random
+session id, with Discord OAuth tokens stored in Postgres rather than exposed to
+the browser. State-changing API routes require a double-submit CSRF token.
+
+## Development
+
+```bash
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.web.app:create_app --factory --reload
+uv run python -m app.bot.main
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Checks:
+
+```bash
+uv run ruff format .
+uv run ruff check .
+uv run pytest
+cd frontend && npm run build
+```
+
+## Production
+
+Set the production `.env` values and run:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+`docker-compose.prod.yml` runs Caddy in front of the API and dashboard for
+automatic HTTPS certificates.
+
+## Forms / Applications
+
+The Forms module is the v0.1 reference feature. Admins can create per-server
+forms in the dashboard, define ordered fields, configure reviewer roles, set a
+private review-thread parent channel, publish the Apply button, and view
+submissions by status.
+
+When a member clicks Apply, the bot opens Discord modal pages in chunks of five
+fields, stores the answers in Postgres, creates a private review thread, posts a
+review embed, and pings the configured reviewer roles once. Reviewer buttons use
+stable custom IDs and are re-registered on startup.
+
+## Roadmap
+
+- v0.1: Project foundation, Discord OAuth dashboard login, module discovery,
+  hello cog, Forms / Applications module.
+- v0.2: Moderation cog with dashboard-managed automod rules.
+- v0.3: Audit log viewer and configurable Discord event logging.
+- v0.4: Welcome screen and auto-role module.
