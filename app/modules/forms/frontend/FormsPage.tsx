@@ -11,6 +11,7 @@ import {
 } from "../../../../frontend/src/api/forms";
 import { Button } from "../../../../frontend/src/components/ui/button";
 import { Card } from "../../../../frontend/src/components/ui/card";
+import { ApplyEmbedPreview } from "./ApplyEmbedPreview";
 import { FormEditor, newFormDraft } from "./FormEditor";
 import { InfoBubble } from "./InfoBubble";
 import { SubmissionsTable } from "./SubmissionsTable";
@@ -99,12 +100,9 @@ export function FormsPage({ guildId }: Props) {
         {selected && !drafting && (
           <>
             <Card className="p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold">{selected.title}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+                <ApplyEmbedPreview form={selected} />
+                <div className="flex flex-wrap gap-2 lg:w-36 lg:flex-col">
                   <span className="inline-flex items-center gap-2">
                     <Button onClick={() => mutate(() => publishForm(guildId, selected.id))}>
                       Publish

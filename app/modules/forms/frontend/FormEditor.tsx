@@ -22,13 +22,21 @@ type Props = {
 
 export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
   const [form, setForm] = useState<FormSummary>(initial);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const isExistingForm = Boolean(initial.id);
 
   useEffect(() => {
     setForm(initial);
+    setSaveStatus("idle");
+    setSaveMessage(null);
   }, [initial]);
 
   async function save() {
+    setSaving(true);
+    setSaveStatus("idle");
+    setSaveMessage(null);
     const payload = {
       title: form.title,
       description: form.description,
@@ -36,12 +44,21 @@ export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
       fields: form.fields,
       reviewSettings: form.reviewSettings,
     };
-    if (form.id) {
-      await updateForm(guildId, form.id, payload);
-    } else {
-      await createForm(guildId, payload);
+    try {
+      if (form.id) {
+        await updateForm(guildId, form.id, payload);
+      } else {
+        await createForm(guildId, payload);
+      }
+      await onSaved();
+      setSaveStatus("saved");
+      setSaveMessage("Saved. Published forms will refresh in Discord automatically.");
+    } catch (error) {
+      setSaveStatus("error");
+      setSaveMessage(readSaveError(error));
+    } finally {
+      setSaving(false);
     }
-    await onSaved();
   }
 
   function updateField(index: number, field: FormField) {
@@ -161,20 +178,36 @@ export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
           onChange={(reviewSettings) => setForm({ ...form, reviewSettings })}
         />
 
-        <div className="flex gap-2">
-          <Button onClick={save}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={save} disabled={saving}>
             <Save aria-hidden="true" size={16} />
-            Save form
+            {saving ? "Saving..." : "Save form"}
           </Button>
           {onCancel && (
             <Button variant="ghost" onClick={onCancel}>
               <X aria-hidden="true" size={16} />
             </Button>
           )}
+          {saveMessage && (
+            <span
+              className={`text-sm ${
+                saveStatus === "error" ? "text-red-500" : "text-muted-foreground"
+              }`}
+            >
+              {saveMessage}
+            </span>
+          )}
         </div>
       </div>
     </Card>
   );
+}
+
+function readSaveError(error: unknown) {
+  if (error instanceof Error) {
+    return `Save failed: ${error.message}`;
+  }
+  return "Save failed. Please try again.";
 }
 
 export function newFormDraft(): FormSummary {

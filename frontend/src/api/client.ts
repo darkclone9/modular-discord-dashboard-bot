@@ -2,13 +2,19 @@ import { readCookie } from "./csrf";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const csrf = readCookie("csrf_token");
+  const csrf = csrfToken ?? readCookie("csrf_token");
   if (csrf && init.method && init.method !== "GET") {
     headers.set("X-CSRF-Token", csrf);
   }

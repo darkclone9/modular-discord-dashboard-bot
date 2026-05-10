@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, setCsrfToken } from "./client";
 
 export type DashboardUser = {
   id: string;
@@ -7,17 +7,26 @@ export type DashboardUser = {
   csrfToken: string;
 };
 
-export function getCurrentUser() {
-  return apiFetch<DashboardUser>("/auth/me");
+function rememberSession(user: DashboardUser) {
+  setCsrfToken(user.csrfToken);
+  return user;
 }
 
-export function loginWithPassword(username: string, password: string) {
-  return apiFetch<DashboardUser>("/auth/local/login", {
+export async function getCurrentUser() {
+  return rememberSession(await apiFetch<DashboardUser>("/auth/me"));
+}
+
+export async function loginWithPassword(username: string, password: string) {
+  return rememberSession(await apiFetch<DashboardUser>("/auth/local/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
-  });
+  }));
 }
 
-export function logout() {
-  return apiFetch<{ status: string }>("/auth/logout", { method: "POST" });
+export async function logout() {
+  try {
+    return await apiFetch<{ status: string }>("/auth/logout", { method: "POST" });
+  } finally {
+    setCsrfToken(null);
+  }
 }

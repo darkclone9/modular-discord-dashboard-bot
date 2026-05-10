@@ -1,7 +1,9 @@
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
+import httpx
+import structlog
 from core.config import Settings, get_settings
 from core.db import get_session_factory
 from core.discord_permissions import filter_manageable_guilds
@@ -11,6 +13,10 @@ from fastapi import Depends, HTTPException, Path, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+log = structlog.get_logger(__name__)
+GUILD_CACHE_TTL = timedelta(minutes=5)
+_manageable_guild_cache: dict[str, tuple[datetime, list[dict]]] = {}
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -55,19 +61,39 @@ async def require_guild_manager(
     dashboard_session: Annotated[DashboardSession, Depends(get_current_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> str:
-    if is_local_admin_session(dashboard_session, settings):
-        if settings.local_admin_can_manage_guild(guild_id):
-            return guild_id
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Local admin guild is not configured",
-        )
-
-    if dashboard_session.token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OAuth token missing")
-    oauth = DiscordOAuthClient(settings)
-    guilds = await oauth.fetch_user_guilds(dashboard_session.token.access_token)
-    manageable = filter_manageable_guilds(guilds)
+    manageable = await get_manageable_guilds_for_session(dashboard_session, settings)
     if not any(str(guild["id"]) == str(guild_id) for guild in manageable):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manage Server required")
     return guild_id
+
+
+async def get_manageable_guilds_for_session(
+    dashboard_session: DashboardSession,
+    settings: Settings,
+) -> list[dict]:
+    if is_local_admin_session(dashboard_session, settings):
+        return settings.local_admin_guild_list
+
+    if dashboard_session.token is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OAuth token missing")
+
+    now = datetime.now(UTC)
+    cached = _manageable_guild_cache.get(dashboard_session.id)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    oauth = DiscordOAuthClient(settings)
+    try:
+        guilds = await oauth.fetch_user_guilds(dashboard_session.token.access_token)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS and cached:
+            log.warning("discord_guild_cache_stale_used", session_id=dashboard_session.id)
+            return cached[1]
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Discord is rate-limiting dashboard permission checks. Try again shortly.",
+        ) from exc
+
+    manageable = filter_manageable_guilds(guilds)
+    _manageable_guild_cache[dashboard_session.id] = (now + GUILD_CACHE_TTL, manageable)
+    return manageable
