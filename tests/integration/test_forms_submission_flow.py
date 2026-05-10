@@ -2,7 +2,12 @@ import pytest
 from app.modules.forms import models as forms_models  # noqa: F401
 from app.modules.forms.models import Form, Submission
 from app.modules.forms.schemas import FormCreate, FormFieldCreate, ReviewSettings
-from app.modules.forms.service import FormsService, PendingSubmissionError, ThreadPost
+from app.modules.forms.service import (
+    FormsService,
+    PendingSubmissionError,
+    ReviewerPermissionError,
+    ThreadPost,
+)
 from core import sessions as session_models  # noqa: F401
 from core.db import Base
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -34,6 +39,7 @@ class FakeDiscordGateway:
                 "submission_id": submission.id,
                 "thread_name": thread_name,
                 "submitter_id": submitter_id,
+                "thread_access_role_ids": form.thread_access_role_ids,
             }
         )
         return "999999"
@@ -107,6 +113,7 @@ async def test_submission_creates_thread_embed_and_role_ping(db_session) -> None
             ],
             review_settings=ReviewSettings(
                 reviewer_role_ids=["777"],
+                viewer_role_ids=["555"],
                 review_channel_id="200",
                 auto_role_id="888",
             ),
@@ -128,7 +135,9 @@ async def test_submission_creates_thread_embed_and_role_ping(db_session) -> None
     assert submission.status == "pending"
     assert submission.thread_id == "999999"
     assert gateway.created_threads[0]["thread_name"] == f"application-gary-{submission.id[:6]}"
+    assert gateway.created_threads[0]["thread_access_role_ids"] == ["777", "555"]
     assert "<@&777>" in str(gateway.review_posts[0]["content"])
+    assert "<@&555>" in str(gateway.review_posts[0]["content"])
     embed = gateway.review_posts[0]["embed"]
     assert embed["title"] == "Staff Application"
     assert {"name": "Name", "value": "Gary", "inline": False} in embed["fields"]
@@ -147,6 +156,15 @@ async def test_submission_creates_thread_embed_and_role_ping(db_session) -> None
                 form.fields[1].id: "Again.",
             },
             gateway=gateway,
+        )
+
+    with pytest.raises(ReviewerPermissionError):
+        await service.approve_submission(
+            submission_id=submission.id,
+            actor_id="55",
+            actor_role_ids={"555"},
+            gateway=gateway,
+            actor_name="Viewer",
         )
 
 

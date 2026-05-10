@@ -34,6 +34,7 @@ class FormFieldRead(FormFieldCreate):
 
 class ReviewSettings(APIModel):
     reviewer_role_ids: list[str] = Field(default_factory=list)
+    viewer_role_ids: list[str] = Field(default_factory=list)
     review_channel_id: str
     auto_role_id: str | None = None
     approval_message: str = "Your application has been approved."

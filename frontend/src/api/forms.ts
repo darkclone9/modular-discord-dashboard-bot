@@ -19,6 +19,7 @@ export type FormField = {
 
 export type ReviewSettings = {
   reviewerRoleIds: string[];
+  viewerRoleIds: string[];
   reviewChannelId: string;
   autoRoleId: string | null;
   approvalMessage: string;

@@ -71,6 +71,7 @@ class FormsCog(commands.Cog):
         question_2="Optional second required long-text question.",
         question_3="Optional third required long-text question.",
         auto_role="Optional role to grant when a submission is approved.",
+        viewer_role="Optional role that can view and discuss review threads without approving.",
     )
     async def setup_form(
         self,
@@ -84,6 +85,7 @@ class FormsCog(commands.Cog):
         question_2: str | None = None,
         question_3: str | None = None,
         auto_role: discord.Role | None = None,
+        viewer_role: discord.Role | None = None,
     ) -> None:
         if interaction.guild_id is None or interaction.guild is None:
             await interaction.response.send_message(
@@ -109,6 +111,7 @@ class FormsCog(commands.Cog):
             apply_channel=apply_channel,
             review_channel=review_channel,
             reviewer_role=reviewer_role,
+            viewer_role=viewer_role,
             auto_role=auto_role,
         )
         if missing_permissions:
@@ -125,6 +128,7 @@ class FormsCog(commands.Cog):
             post_channel_id=str(apply_channel.id),
             review_channel_id=str(review_channel.id),
             reviewer_role_ids=[str(reviewer_role.id)],
+            viewer_role_ids=[str(viewer_role.id)] if viewer_role else [],
             auto_role_id=str(auto_role.id) if auto_role else None,
             questions=[question_1, question_2, question_3],
         )
@@ -250,6 +254,7 @@ def missing_setup_permissions(
     apply_channel: discord.TextChannel,
     review_channel: discord.TextChannel,
     reviewer_role: discord.Role,
+    viewer_role: discord.Role | None,
     auto_role: discord.Role | None,
 ) -> list[str]:
     missing: list[str] = []
@@ -274,6 +279,15 @@ def missing_setup_permissions(
         missing.append(
             f"{review_channel.mention}: Mention @everyone, @here, and All Roles "
             f"or make {reviewer_role.mention} mentionable"
+        )
+    if (
+        viewer_role is not None
+        and not viewer_role.mentionable
+        and not review_permissions.mention_everyone
+    ):
+        missing.append(
+            f"{review_channel.mention}: Mention @everyone, @here, and All Roles "
+            f"or make {viewer_role.mention} mentionable"
         )
 
     if auto_role is not None:

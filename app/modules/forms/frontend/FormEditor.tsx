@@ -220,6 +220,7 @@ export function newFormDraft(): FormSummary {
     fields: [{ label: "Why do you want to apply?", fieldType: "long_text", required: true, options: [] }],
     reviewSettings: {
       reviewerRoleIds: [],
+      viewerRoleIds: [],
       reviewChannelId: "",
       autoRoleId: null,
       approvalMessage: "Your application has been approved.",

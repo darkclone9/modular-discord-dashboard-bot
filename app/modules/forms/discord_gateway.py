@@ -42,6 +42,7 @@ class DiscordFormsGateway:
             await thread.add_user(member)
         except discord.HTTPException:
             pass
+        await add_cached_role_members_to_thread(thread, form.thread_access_role_ids)
         return str(thread.id)
 
     async def post_submission_review(
@@ -138,3 +139,23 @@ def to_discord_embed(payload: dict[str, object]) -> discord.Embed:
 def role_ids_from_member(member: discord.Member | discord.User) -> set[str]:
     roles: Sequence[discord.Role] = getattr(member, "roles", [])
     return {str(role.id) for role in roles}
+
+
+async def add_cached_role_members_to_thread(
+    thread: discord.Thread,
+    role_ids: Sequence[str],
+) -> None:
+    for role_id in dict.fromkeys(role_ids):
+        try:
+            role = thread.guild.get_role(int(role_id))
+        except ValueError:
+            continue
+        if role is None:
+            continue
+        for member in role.members:
+            if member.bot:
+                continue
+            try:
+                await thread.add_user(member)
+            except discord.HTTPException:
+                continue
