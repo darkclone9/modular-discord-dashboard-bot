@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from app.modules.forms import models as forms_models  # noqa: F401
+from app.modules.trackers import models as trackers_models  # noqa: F401
 from core import sessions  # noqa: F401
 from core.config import get_settings
 from core.db import Base

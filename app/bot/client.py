@@ -11,6 +11,8 @@ log = structlog.get_logger(__name__)
 class ModularBot(commands.Bot):
     def __init__(self) -> None:
         intents = discord.Intents.default()
+        intents.members = True
+        intents.presences = True
         super().__init__(command_prefix="!", intents=intents)
         self.settings = get_settings()
         self._synced_guild_ids: set[int] = set()
