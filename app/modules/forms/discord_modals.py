@@ -152,6 +152,7 @@ class ApproveConfirmationModal(discord.ui.Modal):
                     actor_id=str(interaction.user.id),
                     actor_role_ids=role_ids_from_member(interaction.user),
                     gateway=DiscordFormsGateway(interaction.client, self.session_factory),
+                    actor_name=interaction.user.display_name,
                 )
             except ReviewerPermissionError as exc:
                 await interaction.followup.send(str(exc), ephemeral=True)

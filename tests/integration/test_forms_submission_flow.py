@@ -14,8 +14,10 @@ class FakeDiscordGateway:
         self.review_posts: list[dict[str, object]] = []
         self.dms: list[dict[str, str]] = []
         self.assigned_roles: list[dict[str, str]] = []
+        self.role_audit_reasons: list[str] = []
         self.locked_threads: list[str] = []
         self.deleted_threads: list[str] = []
+        self.thread_delete_reasons: list[str] = []
         self.thread_messages: list[dict[str, str]] = []
 
     async def create_review_thread(
@@ -57,14 +59,23 @@ class FakeDiscordGateway:
     async def dm_user(self, *, user_id: str, content: str) -> None:
         self.dms.append({"user_id": user_id, "content": content})
 
-    async def assign_role(self, *, guild_id: str, user_id: str, role_id: str) -> None:
+    async def assign_role(
+        self,
+        *,
+        guild_id: str,
+        user_id: str,
+        role_id: str,
+        reason: str,
+    ) -> None:
         self.assigned_roles.append({"guild_id": guild_id, "user_id": user_id, "role_id": role_id})
+        self.role_audit_reasons.append(reason)
 
     async def lock_thread(self, *, thread_id: str) -> None:
         self.locked_threads.append(thread_id)
 
-    async def delete_thread(self, *, thread_id: str) -> None:
+    async def delete_thread(self, *, thread_id: str, reason: str) -> None:
         self.deleted_threads.append(thread_id)
+        self.thread_delete_reasons.append(reason)
 
     async def post_thread_message(self, *, thread_id: str, content: str) -> None:
         self.thread_messages.append({"thread_id": thread_id, "content": content})
@@ -173,6 +184,7 @@ async def test_approval_dms_assigns_role_and_deletes_review_thread(db_session) -
         actor_id="99",
         actor_role_ids={"777"},
         gateway=gateway,
+        actor_name="Reviewer",
     )
 
     assert approved.status == "approved"
@@ -180,3 +192,7 @@ async def test_approval_dms_assigns_role_and_deletes_review_thread(db_session) -
     assert gateway.assigned_roles == [{"guild_id": "guild-1", "user_id": "42", "role_id": "888"}]
     assert gateway.deleted_threads == ["999999"]
     assert gateway.locked_threads == []
+    assert gateway.role_audit_reasons == [
+        f"Forms: submission {submission.id} approved by Reviewer (99) for Gary (42)"
+    ]
+    assert gateway.thread_delete_reasons == gateway.role_audit_reasons

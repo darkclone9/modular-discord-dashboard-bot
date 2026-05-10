@@ -62,11 +62,18 @@ class FormsDiscordGateway(Protocol):
 
     async def dm_user(self, *, user_id: str, content: str) -> None: ...
 
-    async def assign_role(self, *, guild_id: str, user_id: str, role_id: str) -> None: ...
+    async def assign_role(
+        self,
+        *,
+        guild_id: str,
+        user_id: str,
+        role_id: str,
+        reason: str,
+    ) -> None: ...
 
     async def lock_thread(self, *, thread_id: str) -> None: ...
 
-    async def delete_thread(self, *, thread_id: str) -> None: ...
+    async def delete_thread(self, *, thread_id: str, reason: str) -> None: ...
 
     async def post_thread_message(self, *, thread_id: str, content: str) -> None: ...
 
@@ -253,21 +260,28 @@ class FormsService:
         actor_id: str,
         actor_role_ids: set[str],
         gateway: FormsDiscordGateway,
+        actor_name: str | None = None,
     ) -> Submission:
         submission = await self._get_submission(submission_id)
         ensure_reviewer(submission.form, actor_role_ids)
         submission.status = "approved"
         submission.decided_at = datetime.now(UTC)
-        self._log_action(submission, actor_id=actor_id, action="approved")
+        self._log_action(submission, actor_id=actor_id, action="approved", note=actor_name)
+        audit_reason = build_approval_audit_reason(
+            submission,
+            actor_id=actor_id,
+            actor_name=actor_name,
+        )
         await gateway.dm_user(user_id=submission.user_id, content=submission.form.approval_message)
         if submission.form.auto_role_id:
             await gateway.assign_role(
                 guild_id=submission.guild_id,
                 user_id=submission.user_id,
                 role_id=submission.form.auto_role_id,
+                reason=audit_reason,
             )
         if submission.thread_id:
-            await gateway.delete_thread(thread_id=submission.thread_id)
+            await gateway.delete_thread(thread_id=submission.thread_id, reason=audit_reason)
         await self.db.commit()
         await self.db.refresh(submission, ["actions", "form"])
         return submission
@@ -439,6 +453,17 @@ def ensure_reviewer(form: Form, actor_role_ids: set[str]) -> None:
 def build_reviewer_ping(form: Form) -> str:
     mentions = " ".join(f"<@&{role_id}>" for role_id in form.reviewer_role_ids)
     return f"{mentions} New application submitted for **{form.title}**.".strip()
+
+
+def build_approval_audit_reason(
+    submission: Submission,
+    *,
+    actor_id: str,
+    actor_name: str | None = None,
+) -> str:
+    reviewer = f"{actor_name} ({actor_id})" if actor_name else actor_id
+    applicant = f"{submission.username} ({submission.user_id})"
+    return (f"Forms: submission {submission.id} approved by {reviewer} for {applicant}")[:512]
 
 
 def build_submission_embed(form: Form, submission: Submission) -> dict[str, object]:

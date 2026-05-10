@@ -70,7 +70,14 @@ class DiscordFormsGateway:
         user = self.bot.get_user(int(user_id)) or await self.bot.fetch_user(int(user_id))
         await user.send(content)
 
-    async def assign_role(self, *, guild_id: str, user_id: str, role_id: str) -> None:
+    async def assign_role(
+        self,
+        *,
+        guild_id: str,
+        user_id: str,
+        role_id: str,
+        reason: str,
+    ) -> None:
         guild = self.bot.get_guild(int(guild_id))
         if guild is None:
             guild = await self.bot.fetch_guild(int(guild_id))
@@ -80,17 +87,17 @@ class DiscordFormsGateway:
             role = guild.get_role(int(role_id))
         if role is None:
             raise LookupError("Auto-role not found")
-        await member.add_roles(role, reason="Application approved")
+        await member.add_roles(role, reason=reason)
 
     async def lock_thread(self, *, thread_id: str) -> None:
         channel = await self._fetch_channel(thread_id)
         if isinstance(channel, discord.Thread):
             await channel.edit(locked=True, archived=True, reason="Application review complete")
 
-    async def delete_thread(self, *, thread_id: str) -> None:
+    async def delete_thread(self, *, thread_id: str, reason: str) -> None:
         channel = await self._fetch_channel(thread_id)
         if isinstance(channel, discord.Thread):
-            await channel.delete(reason="Application approved")
+            await channel.delete(reason=reason)
 
     async def post_thread_message(self, *, thread_id: str, content: str) -> None:
         channel = await self._fetch_channel(thread_id)
