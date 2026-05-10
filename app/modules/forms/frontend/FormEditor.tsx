@@ -1,5 +1,5 @@
 import { Save, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   createForm,
@@ -22,6 +22,11 @@ type Props = {
 
 export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
   const [form, setForm] = useState<FormSummary>(initial);
+  const isExistingForm = Boolean(initial.id);
+
+  useEffect(() => {
+    setForm(initial);
+  }, [initial]);
 
   async function save() {
     const payload = {
@@ -51,18 +56,25 @@ export function FormEditor({ guildId, initial, onSaved, onCancel }: Props) {
       <div className="grid gap-5">
         <div className="rounded-md border border-border bg-muted/30 p-3">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            Setup checklist
+            {isExistingForm ? "Edit saved form" : "Setup checklist"}
             <InfoBubble label="Forms setup help">
               Create the form, save it, then publish it. Publishing tells the bot to post the Apply
               button in the channel ID below.
             </InfoBubble>
           </div>
-          <ol className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
-            <li>1. Add the public title and description.</li>
-            <li>2. Choose where the Apply button is posted.</li>
-            <li>3. Add the questions members answer.</li>
-            <li>4. Set the review channel and reviewer roles.</li>
-          </ol>
+          {isExistingForm ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Change the details below and save. Question and review changes affect future
+              submissions immediately.
+            </p>
+          ) : (
+            <ol className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+              <li>1. Add the public title and description.</li>
+              <li>2. Choose where the Apply button is posted.</li>
+              <li>3. Add the questions members answer.</li>
+              <li>4. Set the review channel and reviewer roles.</li>
+            </ol>
+          )}
         </div>
 
         <section className="grid gap-3">

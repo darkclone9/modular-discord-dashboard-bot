@@ -1,24 +1,27 @@
 import { LogOut, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { apiFetch } from "../api/client";
+import { logout as logoutRequest } from "../api/auth";
 import { Button } from "./ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 
 type Props = {
   children: ReactNode;
   username?: string;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
   onLogout: () => void;
 };
 
-export function AppShell({ children, username, onLogout }: Props) {
+export function AppShell({ children, username, theme, onToggleTheme, onLogout }: Props) {
   async function logout() {
-    await apiFetch("/auth/logout", { method: "POST" });
+    await logoutRequest();
     onLogout();
   }
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border bg-white">
+      <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Settings aria-hidden="true" size={17} />
@@ -26,6 +29,7 @@ export function AppShell({ children, username, onLogout }: Props) {
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {username && <span>{username}</span>}
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} />
             <Button variant="ghost" onClick={logout} title="Log out">
               <LogOut aria-hidden="true" size={16} />
             </Button>

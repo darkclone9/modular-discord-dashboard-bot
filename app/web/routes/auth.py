@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from hmac import compare_digest
 from typing import Annotated
 
 from core.config import Settings, get_settings
@@ -7,11 +8,17 @@ from core.security import random_token, sign_state, verify_state
 from core.sessions import DashboardSession, DiscordOAuthToken
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.web.dependencies import get_current_session, get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class LocalLoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=256)
 
 
 def _set_auth_cookies(response: Response, settings: Settings, session: DashboardSession) -> None:
@@ -33,6 +40,15 @@ def _set_auth_cookies(response: Response, settings: Settings, session: Dashboard
         httponly=False,
         samesite="lax",
     )
+
+
+def session_to_me(session: DashboardSession) -> dict[str, str | None]:
+    return {
+        "id": session.discord_user_id,
+        "username": session.username,
+        "avatar": session.avatar,
+        "csrfToken": session.csrf_token,
+    }
 
 
 @router.get("/discord/login")
@@ -79,14 +95,40 @@ async def discord_callback(
     return response
 
 
+@router.post("/local/login")
+async def local_login(
+    payload: LocalLoginRequest,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, str | None]:
+    if not settings.local_admin_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Local login disabled")
+
+    valid_username = compare_digest(payload.username, settings.local_admin_username or "")
+    valid_password = compare_digest(payload.password, settings.local_admin_password or "")
+    if not valid_username or not valid_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
+    dashboard_session = DashboardSession(
+        discord_user_id=settings.local_admin_session_user_id,
+        username=payload.username,
+        avatar=None,
+        csrf_token=random_token(),
+        expires_at=datetime.now(UTC) + timedelta(seconds=settings.session_ttl_seconds),
+    )
+    db.add(dashboard_session)
+    await db.commit()
+    _set_auth_cookies(response, settings, dashboard_session)
+    return session_to_me(dashboard_session)
+
+
 @router.get("/me")
 async def me(session: Annotated[DashboardSession, Depends(get_current_session)]) -> dict:
-    return {
-        "id": session.discord_user_id,
-        "username": session.username,
-        "avatar": session.avatar,
-        "csrfToken": session.csrf_token,
-    }
+    return session_to_me(session)
 
 
 @router.post("/logout")

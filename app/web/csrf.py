@@ -17,7 +17,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        if request.method in SAFE_METHODS or request.url.path.startswith("/auth/discord/"):
+        csrf_exempt = request.url.path.startswith("/auth/discord/") or request.url.path == (
+            "/auth/local/login"
+        )
+        if request.method in SAFE_METHODS or csrf_exempt:
             return await call_next(request)
 
         cookie_token = request.cookies.get(self.settings.csrf_cookie_name)

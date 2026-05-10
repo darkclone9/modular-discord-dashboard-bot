@@ -8,7 +8,7 @@ type Props = {
 
 export function ReviewSettings({ settings, onChange }: Props) {
   return (
-    <div className="grid gap-3 rounded-md border border-border bg-white p-3">
+    <div className="grid gap-3 rounded-md border border-border bg-card p-3">
       <div>
         <div className="flex items-center gap-2 text-sm font-semibold">
           Review workflow

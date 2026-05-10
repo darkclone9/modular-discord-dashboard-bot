@@ -21,7 +21,7 @@ const FIELD_TYPES: FieldType[] = [
 
 export function FieldEditor({ field, onChange, onRemove }: Props) {
   return (
-    <div className="grid gap-2 rounded-md border border-border bg-white p-3">
+    <div className="grid gap-2 rounded-md border border-border bg-card p-3">
       <div className="grid gap-3 sm:grid-cols-[24px_1fr_180px_110px_40px] sm:items-end">
         <GripVertical
           aria-hidden="true"
@@ -46,7 +46,7 @@ export function FieldEditor({ field, onChange, onRemove }: Props) {
             </InfoBubble>
           </span>
           <select
-            className="h-9 rounded-md border border-border bg-white px-3 text-sm font-normal"
+            className="h-9 rounded-md border border-border bg-card px-3 text-sm font-normal"
             value={field.fieldType}
             onChange={(event) => onChange({ ...field, fieldType: event.target.value as FieldType })}
           >

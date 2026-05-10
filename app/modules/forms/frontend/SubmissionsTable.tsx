@@ -19,11 +19,11 @@ export function SubmissionsTable({ guildId, formId }: Props) {
   }, [guildId, formId, status]);
 
   return (
-    <div className="rounded-lg border border-border bg-white">
+    <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border p-3">
         <h3 className="font-semibold">Submissions</h3>
         <select
-          className="h-9 rounded-md border border-border bg-white px-3 text-sm"
+          className="h-9 rounded-md border border-border bg-card px-3 text-sm"
           value={status}
           onChange={(event) => setStatus(event.target.value)}
         >

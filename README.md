@@ -68,6 +68,11 @@ In production, CORS is restricted to `WEB_DOMAIN`. Local development also allows
 session id, with Discord OAuth tokens stored in Postgres rather than exposed to
 the browser. State-changing API routes require a double-submit CSRF token.
 
+If Discord OAuth is unavailable, set `LOCAL_ADMIN_USERNAME`,
+`LOCAL_ADMIN_PASSWORD`, and `LOCAL_ADMIN_GUILDS` to enable the password login on
+the dashboard. `LOCAL_ADMIN_GUILDS` uses comma-separated `guild_id:Display Name`
+entries and grants that local account dashboard access to those servers.
+
 ## Development
 
 ```bash

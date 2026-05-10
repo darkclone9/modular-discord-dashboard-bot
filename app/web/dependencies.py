@@ -42,11 +42,27 @@ async def get_current_session(
     return session
 
 
+def is_local_admin_session(dashboard_session: DashboardSession, settings: Settings) -> bool:
+    return (
+        settings.local_admin_enabled
+        and dashboard_session.token is None
+        and dashboard_session.discord_user_id == settings.local_admin_session_user_id
+    )
+
+
 async def require_guild_manager(
     guild_id: Annotated[str, Path(...)],
     dashboard_session: Annotated[DashboardSession, Depends(get_current_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> str:
+    if is_local_admin_session(dashboard_session, settings):
+        if settings.local_admin_can_manage_guild(guild_id):
+            return guild_id
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Local admin guild is not configured",
+        )
+
     if dashboard_session.token is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OAuth token missing")
     oauth = DiscordOAuthClient(settings)
