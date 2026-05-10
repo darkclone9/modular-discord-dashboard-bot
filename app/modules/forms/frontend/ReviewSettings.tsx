@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import type { ReviewSettings as ReviewSettingsType } from "../../../../frontend/src/api/forms";
 import { InfoBubble } from "./InfoBubble";
 
@@ -7,6 +9,23 @@ type Props = {
 };
 
 export function ReviewSettings({ settings, onChange }: Props) {
+  const reviewerRoleSignature = useMemo(
+    () => settings.reviewerRoleIds.join(","),
+    [settings.reviewerRoleIds],
+  );
+  const [reviewerRoleInput, setReviewerRoleInput] = useState(
+    settings.reviewerRoleIds.join(", "),
+  );
+
+  useEffect(() => {
+    setReviewerRoleInput(settings.reviewerRoleIds.join(", "));
+  }, [reviewerRoleSignature]);
+
+  function updateReviewerRoles(value: string) {
+    setReviewerRoleInput(value);
+    onChange({ ...settings, reviewerRoleIds: parseRoleIds(value) });
+  }
+
   return (
     <div className="grid gap-3 rounded-md border border-border bg-card p-3">
       <div>
@@ -56,23 +75,32 @@ export function ReviewSettings({ settings, onChange }: Props) {
         <span className="flex items-center gap-2">
           Reviewer role IDs
           <InfoBubble label="Reviewer roles help">
-            Put role IDs here, separated by commas. These roles are pinged when a submission arrives.
+            Paste role IDs or role mentions here. Separate multiple reviewer roles with commas,
+            spaces, or new lines.
           </InfoBubble>
         </span>
-        <input
-          className="h-9 rounded-md border border-border px-3 text-sm font-normal"
-          value={settings.reviewerRoleIds.join(", ")}
-          onChange={(event) =>
-            onChange({
-              ...settings,
-              reviewerRoleIds: event.target.value
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean),
-            })
-          }
+        <textarea
+          className="min-h-20 rounded-md border border-border px-3 py-2 text-sm font-normal"
+          value={reviewerRoleInput}
+          onChange={(event) => updateReviewerRoles(event.target.value)}
           placeholder="123456789012345678, 234567890123456789"
         />
+        <div className="flex flex-wrap gap-2 pt-1">
+          {settings.reviewerRoleIds.length > 0 ? (
+            settings.reviewerRoleIds.map((roleId) => (
+              <span
+                key={roleId}
+                className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-normal text-muted-foreground"
+              >
+                {roleId}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs font-normal text-muted-foreground">
+              Add at least one reviewer role ID.
+            </span>
+          )}
+        </div>
       </label>
       <label className="grid gap-1 text-sm font-medium text-foreground">
         Approval DM message
@@ -94,4 +122,9 @@ export function ReviewSettings({ settings, onChange }: Props) {
       </label>
     </div>
   );
+}
+
+
+function parseRoleIds(value: string): string[] {
+  return Array.from(new Set(value.match(/\d{15,25}/g) ?? []));
 }
