@@ -3,13 +3,13 @@ from collections.abc import Awaitable, Callable
 import discord
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.modules.forms.discord_gateway import to_discord_embed
 from app.modules.forms.discord_modals import (
     ApproveConfirmationModal,
     DenyReasonModal,
     FormApplicationModal,
     RequestInfoModal,
 )
-from app.modules.forms.discord_gateway import to_discord_embed
 from app.modules.forms.models import Form
 from app.modules.forms.service import (
     FormsService,
