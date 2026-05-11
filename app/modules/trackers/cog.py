@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import discord
 import structlog
 from core.db import get_session_factory
+from discord import app_commands
 from discord.ext import commands, tasks
 
 from app.modules.trackers.discord_gateway import DiscordTrackersGateway
@@ -18,6 +19,8 @@ log = structlog.get_logger(__name__)
 
 
 class TrackersCog(commands.Cog):
+    trackers = app_commands.Group(name="trackers", description="Manage notification trackers.")
+
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.session_factory = get_session_factory()
@@ -86,6 +89,54 @@ class TrackersCog(commands.Cog):
                     )
                 except Exception as exc:
                     log.warning("weekly_game_pick_failed", guild_id=guild.id, error=str(exc))
+
+    @trackers.command(
+        name="run_game_pick",
+        description="Run the weekly game suggestion pick now for testing.",
+    )
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def run_game_pick(self, interaction: discord.Interaction) -> None:
+        if interaction.guild_id is None or interaction.guild is None:
+            await interaction.response.send_message("Run this in a server.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        candidates = game_candidates_from_members(interaction.guild.members)
+        async with self.session_factory() as db:
+            try:
+                pick = await TrackersService(db).create_weekly_game_pick(
+                    guild_id=str(interaction.guild_id),
+                    now=datetime.now(UTC),
+                    gateway=DiscordTrackersGateway(self.bot),
+                    candidates=candidates,
+                    force=True,
+                )
+            except Exception as exc:
+                log.warning(
+                    "manual_game_pick_failed",
+                    guild_id=interaction.guild_id,
+                    error=str(exc),
+                )
+                await interaction.followup.send(
+                    "I could not run the game pick. Check the announcement channel and my "
+                    "permissions there.",
+                    ephemeral=True,
+                )
+                return
+
+        if pick is None:
+            await interaction.followup.send(
+                "No pick was posted. Make sure the game suggestion settings have an announcement "
+                "channel, at least one member has shared a Playing status, and this week has not "
+                "already been picked.",
+                ephemeral=True,
+            )
+            return
+        await interaction.followup.send(
+            f"Posted this week's game pick: **{pick.game_name}** from {pick.username}.",
+            ephemeral=True,
+        )
 
     async def _poll_tracker(
         self,

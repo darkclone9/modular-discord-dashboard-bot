@@ -92,3 +92,32 @@ async def test_weekly_game_pick_announces_once_and_records_reward(db_session) ->
     assert gateway.game_picks[0]["reward_role_id"] == "200"
     assert str(gateway.game_picks[0]["content"]).startswith("@everyone Game night pick:")
     assert "<@" in str(gateway.game_picks[0]["content"])
+
+
+@pytest.mark.asyncio
+async def test_manual_game_pick_can_run_outside_scheduled_hour(db_session) -> None:
+    service = TrackersService(db_session)
+    await service.update_game_settings(
+        "guild-1",
+        GameSuggestionSettingsUpdate(
+            enabled=True,
+            announcement_channel_id="100",
+            reward_role_id=None,
+            mention_everyone=False,
+            announcement_weekday=4,
+            announcement_hour_utc=3,
+            custom_message="Manual pick: {game} from {player_mention}",
+        ),
+    )
+    gateway = FakeTrackerGateway()
+
+    pick = await service.create_weekly_game_pick(
+        guild_id="guild-1",
+        now=datetime(2026, 5, 11, 18, 0, tzinfo=UTC),
+        gateway=gateway,
+        candidates=[GameCandidate(user_id="42", username="Gary", game_name="Satisfactory")],
+        force=True,
+    )
+
+    assert pick is not None
+    assert gateway.game_picks[0]["content"] == "Manual pick: Satisfactory from <@42>"
