@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -9,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.modules.forms.models import Form, FormField, Submission, SubmissionAction
 from app.modules.forms.schemas import (
+    ApplyPreviewRead,
     FormCreate,
     FormFieldCreate,
     FormRead,
@@ -450,6 +452,7 @@ def form_to_read(form: Form) -> FormRead:
         published_at=form.published_at,
         created_at=form.created_at,
         updated_at=form.updated_at,
+        apply_preview=ApplyPreviewRead.model_validate(build_apply_embed_payload(form)),
     )
 
 
@@ -503,6 +506,143 @@ def format_answer(answer: object) -> str:
     if isinstance(answer, list):
         return ", ".join(str(item) for item in answer) or "(empty)"
     return str(answer)
+
+
+def build_apply_embed_payload(form: Form) -> dict[str, object]:
+    intro, sections = split_apply_description(form.description)
+    fields: list[dict[str, object]] = []
+    for title, body in sections[:8]:
+        fields.append(
+            {"name": title, "value": truncate_embed_value(body), "inline": False}
+        )
+
+    questions = format_question_list(form)
+    if questions:
+        fields.append(
+            {
+                "name": f"Questions ({len(form.fields)})",
+                "value": questions,
+                "inline": False,
+            }
+        )
+    fields.append(
+        {
+            "name": "How to submit",
+            "value": (
+                "Click **Apply** below. Your answers open a private review thread for the team."
+            ),
+            "inline": False,
+        }
+    )
+    return {
+        "title": form.title,
+        "description": truncate_embed_value(
+            intro or "Ready to apply? Click the Apply button below to begin.",
+            4096,
+        ),
+        "fields": fields,
+        "footer": {"text": "Applications are handled privately by the reviewer team."},
+    }
+
+
+def build_application_question_payload(form: Form) -> dict[str, object]:
+    fields: list[dict[str, object]] = []
+    for index, field in enumerate(form.fields, 1):
+        value = field.label
+        if field.field_type in {"select", "multi_select"} and field.options:
+            choices = "\n".join(f"- {option}" for option in field.options)
+            value = f"{field.label}\n\nChoices:\n{choices}"
+        fields.append(
+            {
+                "name": f"Question {index}",
+                "value": truncate_embed_value(value),
+                "inline": False,
+            }
+        )
+    return {
+        "title": f"{form.title} questions",
+        "description": (
+            "Read the full questions here first. The popup uses short labels because Discord "
+            "limits modal labels."
+        ),
+        "fields": fields[:25],
+        "footer": {"text": "Click Start application when you are ready to answer."},
+    }
+
+
+def split_apply_description(description: str) -> tuple[str, list[tuple[str, str]]]:
+    text = normalize_embed_text(description)
+    if not text:
+        return "", []
+
+    paragraph_sections = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+    if len(paragraph_sections) > 1:
+        return paragraph_sections[0], [
+            (f"Details {index}", paragraph)
+            for index, paragraph in enumerate(paragraph_sections[1:], 1)
+        ]
+
+    heading_pattern = re.compile(
+        r"\b(What officers do|What we're looking for|What we are looking for|"
+        r"Time commitment|How to apply|Requirements|Eligibility|What happens next|Deadline)"
+        r"\s*[:.]\s+",
+        re.IGNORECASE,
+    )
+    matches = list(heading_pattern.finditer(text))
+    if not matches:
+        return split_long_intro(text)
+
+    intro = text[: matches[0].start()].strip()
+    sections: list[tuple[str, str]] = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        body = text[start:end].strip()
+        if body:
+            sections.append((canonical_section_title(match.group(1)), body))
+    return intro, sections
+
+
+def split_long_intro(text: str) -> tuple[str, list[tuple[str, str]]]:
+    if len(text) <= 900:
+        return text, []
+    split_at = text.rfind(". ", 0, 700)
+    if split_at == -1:
+        split_at = 700
+    return text[: split_at + 1].strip(), [("Details", text[split_at + 1 :].strip())]
+
+
+def normalize_embed_text(value: str) -> str:
+    return re.sub(r"[ \t]+", " ", value.replace("\r\n", "\n").replace("\r", "\n")).strip()
+
+
+def canonical_section_title(value: str) -> str:
+    normalized = value.strip().lower()
+    titles = {
+        "what officers do": "What officers do",
+        "what we're looking for": "What we're looking for",
+        "what we are looking for": "What we're looking for",
+        "time commitment": "Time commitment",
+        "how to apply": "How to apply",
+        "requirements": "Requirements",
+        "eligibility": "Eligibility",
+        "what happens next": "What happens next",
+        "deadline": "Deadline",
+    }
+    return titles.get(normalized, value.strip())
+
+
+def format_question_list(form: Form) -> str:
+    if not form.fields:
+        return ""
+    lines = [f"{index}. {field.label}" for index, field in enumerate(form.fields, 1)]
+    return truncate_embed_value("\n".join(lines))
+
+
+def truncate_embed_value(value: str, limit: int = 1024) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 3].rstrip() + "..."
 
 
 def build_thread_name(username: str, submission_id: str) -> str:

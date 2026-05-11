@@ -35,6 +35,14 @@ def test_validate_answers_normalizes_supported_field_types() -> None:
     }
 
 
+def test_validate_answers_accepts_newline_multi_select_values() -> None:
+    fields = [FieldDefinition("roles", "Roles", "multi_select", True, ["Builder", "Helper"])]
+
+    normalized = validate_answers(fields, {"roles": "Builder\nHelper"})
+
+    assert normalized == {"roles": ["Builder", "Helper"]}
+
+
 def test_validate_answers_rejects_missing_required_field() -> None:
     fields = [FieldDefinition("name", "Name", "short_text", True, [])]
 

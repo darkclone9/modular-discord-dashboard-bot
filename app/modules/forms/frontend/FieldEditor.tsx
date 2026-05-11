@@ -22,16 +22,16 @@ const FIELD_TYPES: FieldType[] = [
 export function FieldEditor({ field, onChange, onRemove }: Props) {
   return (
     <div className="grid gap-2 rounded-md border border-border bg-card p-3">
-      <div className="grid gap-3 sm:grid-cols-[24px_1fr_180px_110px_40px] sm:items-end">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-[24px_1fr_140px_80px_40px] lg:grid-cols-[24px_1fr_180px_110px_40px] sm:items-end overflow-x-auto">
         <GripVertical
           aria-hidden="true"
           className="hidden text-muted-foreground sm:mb-3 sm:block"
           size={16}
         />
-        <label className="grid gap-1 text-sm font-medium text-foreground">
-          Question label
+        <label className="grid gap-1 text-sm font-medium text-foreground min-w-0">
+          <span className="truncate">Question label</span>
           <textarea
-            className="min-h-20 rounded-md border border-border px-3 py-2 text-sm font-normal"
+            className="min-h-20 rounded-md border border-border px-3 py-2 text-sm font-normal w-full"
             value={field.label}
             onChange={(event) => onChange({ ...field, label: event.target.value })}
             placeholder="Why do you want to apply?"
@@ -78,25 +78,49 @@ export function FieldEditor({ field, onChange, onRemove }: Props) {
           <span className="flex items-center gap-2">
             Choices
             <InfoBubble label="Choices help">
-              Separate choices with commas. Members will pick from these values in Discord.
+              Put each choice on its own line. Pasted comma-separated lists also work.
             </InfoBubble>
           </span>
-          <input
-            className="h-9 rounded-md border border-border px-3 text-sm font-normal"
-            value={field.options.join(", ")}
+          <textarea
+            className="min-h-24 rounded-md border border-border px-3 py-2 text-sm font-normal"
+            value={field.options.join("\n")}
             onChange={(event) =>
               onChange({
                 ...field,
-                options: event.target.value
-                  .split(",")
-                  .map((item) => item.trim())
-                  .filter(Boolean),
+                options: parseOptions(event.target.value),
               })
             }
-            placeholder="Option one, Option two, Option three"
+            placeholder={"Option one\nOption two\nOption three"}
           />
+          <div className="flex flex-wrap gap-2 pt-1">
+            {field.options.length > 0 ? (
+              field.options.map((option) => (
+                <span
+                  key={option}
+                  className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-normal text-muted-foreground"
+                >
+                  {option}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs font-normal text-muted-foreground">
+                Add at least one choice for select fields.
+              </span>
+            )}
+          </div>
         </label>
       )}
     </div>
+  );
+}
+
+function parseOptions(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .split(/[,\n]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
   );
 }

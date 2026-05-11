@@ -20,8 +20,8 @@ export function AppShell({ children, username, theme, onToggleTheme, onLogout }:
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border bg-card">
+    <div className="flex flex-col min-h-screen">
+      <header className="border-b border-border bg-card flex-shrink-0">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Settings aria-hidden="true" size={17} />
@@ -36,7 +36,7 @@ export function AppShell({ children, username, theme, onToggleTheme, onLogout }:
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="flex-1 mx-auto max-w-6xl w-full px-4 py-6 overflow-y-auto">{children}</main>
     </div>
   );
 }

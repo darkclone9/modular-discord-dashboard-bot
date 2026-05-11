@@ -26,6 +26,13 @@ export type ReviewSettings = {
   denialMessage: string;
 };
 
+export type ApplyPreview = {
+  title: string;
+  description: string;
+  fields: { name: string; value: string; inline: boolean }[];
+  footer: { text: string } | null;
+};
+
 export type FormSummary = {
   id: string;
   guildId: string;
@@ -37,6 +44,7 @@ export type FormSummary = {
   isArchived: boolean;
   isPublished: boolean;
   publishedMessageId: string | null;
+  applyPreview: ApplyPreview;
 };
 
 export type Submission = {
@@ -62,7 +70,13 @@ export function listForms(guildId: string) {
   return apiFetch<FormSummary[]>(`/guilds/${guildId}/forms`);
 }
 
-export function createForm(guildId: string, payload: Omit<FormSummary, "id" | "guildId" | "isArchived" | "isPublished" | "publishedMessageId">) {
+export function createForm(
+  guildId: string,
+  payload: Omit<
+    FormSummary,
+    "id" | "guildId" | "isArchived" | "isPublished" | "publishedMessageId" | "applyPreview"
+  >,
+) {
   return apiFetch<FormSummary>(`/guilds/${guildId}/forms`, {
     method: "POST",
     body: JSON.stringify(payload),

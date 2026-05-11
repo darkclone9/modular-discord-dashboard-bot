@@ -270,5 +270,11 @@ export function newFormDraft(): FormSummary {
     isArchived: false,
     isPublished: false,
     publishedMessageId: null,
+    applyPreview: {
+      title: "",
+      description: "Ready to apply? Click the Apply button below to begin.",
+      fields: [],
+      footer: { text: "Applications are handled privately by the reviewer team." },
+    },
   };
 }
