@@ -1,7 +1,7 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import re
 from typing import Protocol
 
 from sqlalchemy import delete, select
@@ -528,7 +528,9 @@ def build_apply_embed_payload(form: Form) -> dict[str, object]:
     fields.append(
         {
             "name": "How to submit",
-            "value": "Click **Apply** below. Your answers open a private review thread for the team.",
+            "value": (
+                "Click **Apply** below. Your answers open a private review thread for the team."
+            ),
             "inline": False,
         }
     )
