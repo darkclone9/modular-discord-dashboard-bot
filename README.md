@@ -156,11 +156,23 @@ members are playing, and once per configured week picks one user's game. The bot
 can mention `@everyone`, ping the selected player, and optionally grant a reward
 role.
 
+## Reaction Roles
+
+The Reaction Roles module lets admins create role menus from the dashboard or
+with `/reactionroles` commands in Discord. Menus can use classic emoji reactions,
+buttons, or a dropdown select. Classic reaction menus can be posted by the bot or
+attached to an existing message ID.
+
+The bot needs Manage Roles, Add Reactions, Read Message History, Send Messages,
+and Embed Links in the target channel. The bot role must also sit above every
+role it grants.
+
 ## Roadmap
 
 - v0.1: Project foundation, Discord OAuth dashboard login, module discovery,
   hello cog, Forms / Applications module.
 - v0.2: Trackers module for social notifications and weekly game suggestions.
-- v0.3: Moderation cog with dashboard-managed automod rules.
-- v0.4: Audit log viewer and configurable Discord event logging.
-- v0.5: Welcome screen and auto-role module.
+- v0.3: Reaction Roles module with emoji, button, and dropdown role menus.
+- v0.4: Moderation cog with dashboard-managed automod rules.
+- v0.5: Audit log viewer and configurable Discord event logging.
+- v0.6: Welcome screen and auto-role module.

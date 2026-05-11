@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Guild } from "../api/guilds";
 import { GuildSwitcher } from "../components/GuildSwitcher";
 import { FormsPage } from "../../../app/modules/forms/frontend/FormsPage";
+import { ReactionRolesPage } from "../../../app/modules/reaction_roles/frontend/ReactionRolesPage";
 import { TrackersPage } from "../../../app/modules/trackers/frontend/TrackersPage";
 
 type Props = {
@@ -13,7 +14,9 @@ type Props = {
 
 export function GuildDashboardPage({ guilds, selectedGuildId, onSelectGuild }: Props) {
   const guild = guilds.find((item) => item.id === selectedGuildId);
-  const [activeModule, setActiveModule] = useState<"forms" | "trackers">("forms");
+  const [activeModule, setActiveModule] = useState<"forms" | "trackers" | "reactionRoles">(
+    "forms",
+  );
 
   return (
     <section>
@@ -43,13 +46,19 @@ export function GuildDashboardPage({ guilds, selectedGuildId, onSelectGuild }: P
         >
           Trackers
         </button>
+        <button
+          className={`rounded-md px-3 py-2 text-sm font-medium ${
+            activeModule === "reactionRoles" ? "bg-primary text-primary-foreground" : "bg-muted"
+          }`}
+          onClick={() => setActiveModule("reactionRoles")}
+        >
+          Reaction roles
+        </button>
       </div>
       <div className="mt-6">
-        {activeModule === "forms" ? (
-          <FormsPage guildId={selectedGuildId} />
-        ) : (
-          <TrackersPage guildId={selectedGuildId} />
-        )}
+        {activeModule === "forms" && <FormsPage guildId={selectedGuildId} />}
+        {activeModule === "trackers" && <TrackersPage guildId={selectedGuildId} />}
+        {activeModule === "reactionRoles" && <ReactionRolesPage guildId={selectedGuildId} />}
       </div>
     </section>
   );
