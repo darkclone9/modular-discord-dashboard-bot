@@ -42,6 +42,23 @@ class ReviewSettings(APIModel):
     denial_message: str = "Your application was denied."
 
 
+class EmbedFieldRead(APIModel):
+    name: str
+    value: str
+    inline: bool = False
+
+
+class EmbedFooterRead(APIModel):
+    text: str
+
+
+class ApplyPreviewRead(APIModel):
+    title: str
+    description: str
+    fields: list[EmbedFieldRead] = Field(default_factory=list)
+    footer: EmbedFooterRead | None = None
+
+
 class FormCreate(APIModel):
     title: str = Field(min_length=1, max_length=100)
     description: str = ""
@@ -72,6 +89,7 @@ class FormRead(APIModel):
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    apply_preview: ApplyPreviewRead
 
 
 class SubmissionCreate(APIModel):

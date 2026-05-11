@@ -29,16 +29,21 @@ class FormApplicationModal(discord.ui.Modal):
         self.page = page
         self.answers = answers or {}
 
-        for field in self.current_fields:
+        for display_index, field in enumerate(
+            self.current_fields,
+            start=(self.page * 5) + 1,
+        ):
+            label = f"Question {display_index}"
+            placeholder = placeholder_for(field)
             self.add_item(
                 discord.ui.TextInput(
-                    label=truncate(field.label, 45),
+                    label=label,
                     custom_id=field.id,
                     required=field.required,
                     style=discord.TextStyle.paragraph
                     if field.field_type == "long_text"
                     else discord.TextStyle.short,
-                    placeholder=placeholder_for(field),
+                    placeholder=placeholder,
                     max_length=4000 if field.field_type == "long_text" else 200,
                 )
             )
@@ -195,11 +200,14 @@ class RequestInfoModal(discord.ui.Modal):
 
 def placeholder_for(field: FormField) -> str | None:
     if field.field_type in {"select", "multi_select"}:
-        return truncate("Options: " + ", ".join(field.options), 100)
+        prefix = "Choose one: " if field.field_type == "select" else "Choose one or more: "
+        return truncate(prefix + ", ".join(field.options), 100)
     if field.field_type == "boolean":
         return "true or false"
     if field.field_type == "number":
         return "Number"
+    if field.field_type == "long_text":
+        return "Write your answer here."
     return None
 
 

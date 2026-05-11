@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+import re
 from typing import Any
 
 SUPPORTED_FIELD_TYPES = {
@@ -108,7 +109,7 @@ def normalize_text(value: Any, *, max_length: int) -> str:
 
 def normalize_multi_select(value: Any) -> list[str]:
     if isinstance(value, str):
-        return [item.strip() for item in value.split(",") if item.strip()]
+        return [item.strip() for item in re.split(r"[,\n]+", value) if item.strip()]
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     raise ValueError("must be a list or comma-separated text")

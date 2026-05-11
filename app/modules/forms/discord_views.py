@@ -9,7 +9,13 @@ from app.modules.forms.discord_modals import (
     FormApplicationModal,
     RequestInfoModal,
 )
-from app.modules.forms.service import FormsService, NotFoundError
+from app.modules.forms.discord_gateway import to_discord_embed
+from app.modules.forms.models import Form
+from app.modules.forms.service import (
+    FormsService,
+    NotFoundError,
+    build_application_question_payload,
+)
 
 
 class ApplyView(discord.ui.View):
@@ -35,13 +41,55 @@ class ApplyView(discord.ui.View):
             except NotFoundError:
                 await interaction.response.send_message("This form is no longer available.")
                 return
-            await interaction.response.send_modal(
-                FormApplicationModal(
-                    form_id=form.id,
-                    fields=form.fields,
+            await interaction.response.send_message(
+                embed=to_discord_embed(build_application_question_payload(form)),
+                view=ApplicationStartView(
+                    form=form,
+                    user_id=str(interaction.user.id),
                     session_factory=self.session_factory,
-                )
+                ),
+                ephemeral=True,
             )
+
+
+class ApplicationStartView(discord.ui.View):
+    def __init__(
+        self,
+        *,
+        form: Form,
+        user_id: str,
+        session_factory: async_sessionmaker[AsyncSession],
+    ) -> None:
+        super().__init__(timeout=900)
+        self.form_id = form.id
+        self.user_id = user_id
+        self.fields = list(form.fields)
+        self.session_factory = session_factory
+        button = discord.ui.Button(
+            label="Start application",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"forms:start:{form.id}:{user_id}",
+        )
+        button.callback = self.start
+        self.add_item(button)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if str(interaction.user.id) == self.user_id:
+            return True
+        await interaction.response.send_message(
+            "This application prompt belongs to someone else. Click Apply to start your own.",
+            ephemeral=True,
+        )
+        return False
+
+    async def start(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(
+            FormApplicationModal(
+                form_id=self.form_id,
+                fields=self.fields,
+                session_factory=self.session_factory,
+            )
+        )
 
 
 class ReviewActionsView(discord.ui.View):

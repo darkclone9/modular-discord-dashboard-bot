@@ -41,8 +41,8 @@ export function FormsPage({ guildId }: Props) {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-      <aside>
+    <div className="grid gap-5 lg:grid-cols-[320px_1fr] h-full">
+      <aside className="overflow-y-auto max-h-[calc(100vh-140px)] lg:max-h-none">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export function FormsPage({ guildId }: Props) {
         </div>
       </aside>
 
-      <section className="space-y-5">
+      <section className="space-y-5 overflow-x-hidden">
         {drafting && (
           <FormEditor
             guildId={guildId}

@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 
 import discord
@@ -17,6 +16,7 @@ from app.modules.forms.models import Form, Submission
 from app.modules.forms.service import (
     DEFAULT_SETUP_QUESTION,
     FormsService,
+    build_apply_embed_payload,
     build_server_setup_form_payload,
 )
 
@@ -341,103 +341,24 @@ def format_missing_permissions(missing_permissions: list[str]) -> str:
 
 
 def build_apply_embed(form: Form) -> discord.Embed:
-    intro, sections = split_apply_description(form.description)
+    payload = build_apply_embed_payload(form)
     embed = discord.Embed(
-        title=form.title,
-        description=truncate_embed_value(
-            intro or "Ready to apply? Click the Apply button below to begin.",
-            4096,
-        ),
+        title=str(payload.get("title") or form.title),
+        description=str(payload.get("description") or ""),
         color=discord.Color.blurple(),
     )
-    for title, body in sections[:8]:
-        embed.add_field(name=title, value=truncate_embed_value(body), inline=False)
-
-    questions = format_question_list(form)
-    if questions:
-        embed.add_field(name=f"Questions ({len(form.fields)})", value=questions, inline=False)
-    embed.add_field(
-        name="How to submit",
-        value="Click **Apply** below. Your answers open a private review thread for the team.",
-        inline=False,
-    )
-    embed.set_footer(text="Applications are handled privately by the reviewer team.")
+    for field in payload.get("fields", []):
+        if not isinstance(field, dict):
+            continue
+        embed.add_field(
+            name=str(field.get("name") or "Field"),
+            value=str(field.get("value") or "(empty)")[:1024],
+            inline=bool(field.get("inline", False)),
+        )
+    footer = payload.get("footer")
+    if isinstance(footer, dict) and footer.get("text"):
+        embed.set_footer(text=str(footer["text"]))
     return embed
-
-
-def split_apply_description(description: str) -> tuple[str, list[tuple[str, str]]]:
-    text = normalize_embed_text(description)
-    if not text:
-        return "", []
-
-    paragraph_sections = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
-    if len(paragraph_sections) > 1:
-        return paragraph_sections[0], [
-            (f"Details {index}", paragraph)
-            for index, paragraph in enumerate(paragraph_sections[1:], 1)
-        ]
-
-    heading_pattern = re.compile(
-        r"\b(What officers do|What we're looking for|What we are looking for|"
-        r"Time commitment|How to apply|Requirements|Eligibility|What happens next|Deadline)"
-        r"\s*[:.]\s+",
-        re.IGNORECASE,
-    )
-    matches = list(heading_pattern.finditer(text))
-    if not matches:
-        return split_long_intro(text)
-
-    intro = text[: matches[0].start()].strip()
-    sections: list[tuple[str, str]] = []
-    for index, match in enumerate(matches):
-        start = match.end()
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        body = text[start:end].strip()
-        if body:
-            sections.append((canonical_section_title(match.group(1)), body))
-    return intro, sections
-
-
-def split_long_intro(text: str) -> tuple[str, list[tuple[str, str]]]:
-    if len(text) <= 900:
-        return text, []
-    split_at = text.rfind(". ", 0, 700)
-    if split_at == -1:
-        split_at = 700
-    return text[: split_at + 1].strip(), [("Details", text[split_at + 1 :].strip())]
-
-
-def normalize_embed_text(value: str) -> str:
-    return re.sub(r"[ \t]+", " ", value.replace("\r\n", "\n").replace("\r", "\n")).strip()
-
-
-def canonical_section_title(value: str) -> str:
-    normalized = value.strip().lower()
-    titles = {
-        "what officers do": "What officers do",
-        "what we're looking for": "What we're looking for",
-        "what we are looking for": "What we're looking for",
-        "time commitment": "Time commitment",
-        "how to apply": "How to apply",
-        "requirements": "Requirements",
-        "eligibility": "Eligibility",
-        "what happens next": "What happens next",
-        "deadline": "Deadline",
-    }
-    return titles.get(normalized, value.strip())
-
-
-def format_question_list(form: Form) -> str:
-    if not form.fields:
-        return ""
-    lines = [f"{index}. {field.label}" for index, field in enumerate(form.fields, 1)]
-    return truncate_embed_value("\n".join(lines))
-
-
-def truncate_embed_value(value: str, limit: int = 1024) -> str:
-    if len(value) <= limit:
-        return value
-    return value[: limit - 3].rstrip() + "..."
 
 
 async def setup(bot: commands.Bot) -> None:
