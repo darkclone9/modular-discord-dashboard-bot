@@ -235,9 +235,10 @@ class TrackersService:
         now: datetime,
         gateway: TrackerNotificationGateway,
         candidates: Sequence[GameCandidate] = (),
+        force: bool = False,
     ) -> GameSuggestionPick | None:
         settings = await self.get_game_settings(guild_id)
-        if not should_announce_this_hour(settings, now):
+        if not force and not should_announce_this_hour(settings, now):
             return None
 
         week = iso_week_key(now)

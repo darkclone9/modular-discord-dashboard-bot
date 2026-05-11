@@ -377,12 +377,24 @@ export function TrackersPage({ guildId }: Props) {
                 <Save aria-hidden="true" size={16} />
                 Save game settings
               </Button>
+              <span className="text-sm text-muted-foreground">
+                {gameSettings.updatedAt
+                  ? `Saved ${new Date(gameSettings.updatedAt).toLocaleString()}`
+                  : "Not saved yet"}
+              </span>
               {gameSettings.lastAnnouncedWeek && (
                 <span className="text-sm text-muted-foreground">
                   Last announced: {gameSettings.lastAnnouncedWeek}
                 </span>
               )}
             </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Automatic picks are checked every 15 minutes during{" "}
+              {weekdays[gameSettings.announcementWeekday]} at{" "}
+              {String(gameSettings.announcementHourUtc).padStart(2, "0")}:00 UTC. To test
+              immediately, run <span className="font-semibold">/trackers run_game_pick</span> in
+              Discord after saving.
+            </p>
           </Card>
         )}
 
