@@ -1,6 +1,6 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-import re
 from typing import Any
 
 SUPPORTED_FIELD_TYPES = {
